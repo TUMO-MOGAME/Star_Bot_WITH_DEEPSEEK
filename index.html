@@ -1,0 +1,1671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Star College Chatbot</title>
+    <!-- Add Marked.js for Markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Add Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* Base colors */
+            --primary-color: #0a3d62;
+            --secondary-color: #e74c3c;
+            --accent-color: #3498db;
+            --light-color: #f5f6fa;
+            --dark-color: #2c3e50;
+            --success-color: #2ecc71;
+            --warning-color: #f39c12;
+            --info-color: #3498db;
+            --error-color: #e74c3c;
+
+            /* UI Elements */
+            --border-radius: 10px;
+            --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --transition-speed: 0.3s;
+
+            /* Light Theme Colors */
+            --bg-color: #f0f2f5;
+            --container-bg: white;
+            --text-color: #2c3e50;
+            --border-color: #e1e1e1;
+            --input-bg: #f0f2f5;
+            --message-bg: white;
+            --sidebar-bg: var(--primary-color);
+            --sidebar-text: white;
+
+            /* School-specific colors */
+            --boys-high-color: #0a3d62; /* Dark blue */
+            --girls-high-color: #8e44ad; /* Purple */
+            --primary-school-color: #2ecc71; /* Green */
+            --pre-primary-color: #f39c12; /* Orange */
+        }
+
+        /* Dark Theme */
+        body.dark-theme {
+            --bg-color: #1a1a2e;
+            --container-bg: #16213e;
+            --text-color: #f5f6fa;
+            --border-color: #2c3e50;
+            --input-bg: #0f3460;
+            --message-bg: #16213e;
+            --sidebar-bg: #0f3460;
+            --sidebar-text: #f5f6fa;
+        }
+
+        /* School-specific themes */
+        body.boys-high-theme {
+            --primary-color: var(--boys-high-color);
+            --accent-color: #3498db;
+        }
+
+        body.girls-high-theme {
+            --primary-color: var(--girls-high-color);
+            --accent-color: #e84393;
+        }
+
+        body.primary-theme {
+            --primary-color: var(--primary-school-color);
+            --accent-color: #27ae60;
+        }
+
+        body.pre-primary-theme {
+            --primary-color: var(--pre-primary-color);
+            --accent-color: #e67e22;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            transition: background-color var(--transition-speed) ease, color var(--transition-speed) ease;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e1e1e1;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+        }
+
+        .logo {
+            width: 100px;
+            height: 100px;
+            margin-right: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .school-logo-image {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            border-radius: 5px;
+            transition: all var(--transition-speed) ease;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            background-color: white;
+            padding: 5px;
+        }
+
+        .logo-text h1 {
+            font-size: 24px;
+            color: var(--primary-color);
+            margin: 0;
+        }
+
+        .logo-text p {
+            font-size: 14px;
+            color: var(--secondary-color);
+            margin: 0;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+        }
+
+        .theme-toggle {
+            margin-right: 15px;
+        }
+
+        .theme-toggle button {
+            background: none;
+            border: none;
+            color: var(--dark-color);
+            font-size: 18px;
+            cursor: pointer;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--transition-speed) ease;
+        }
+
+        .theme-toggle button:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        body.dark-theme .theme-toggle button i.fa-moon {
+            display: none;
+        }
+
+        body.dark-theme .theme-toggle button i.fa-sun {
+            display: inline-block;
+        }
+
+        .theme-toggle button i.fa-sun {
+            display: none;
+        }
+
+        .sidebar-toggle {
+            display: none; /* Hidden by default, shown in mobile view */
+            background: none;
+            border: none;
+            color: var(--sidebar-text);
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        .school-selector {
+            position: relative;
+        }
+
+        .school-selector select {
+            padding: 8px 12px;
+            border-radius: var(--border-radius);
+            border: 1px solid #ddd;
+            background-color: white;
+            font-family: 'Poppins', sans-serif;
+            font-size: 14px;
+            color: var(--dark-color);
+            cursor: pointer;
+            appearance: none;
+            padding-right: 30px;
+        }
+
+        .school-selector::after {
+            content: '\f107';
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 900;
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            pointer-events: none;
+        }
+
+        .chat-container {
+            display: flex;
+            height: calc(100vh - 180px);
+            background-color: var(--container-bg);
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            box-shadow: var(--box-shadow);
+            transition: background-color var(--transition-speed) ease, box-shadow var(--transition-speed) ease;
+        }
+
+        .chat-sidebar {
+            width: 250px;
+            background-color: var(--sidebar-bg);
+            color: var(--sidebar-text);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            transition: background-color var(--transition-speed) ease, color var(--transition-speed) ease;
+        }
+
+        .sidebar-header {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .sidebar-header h2 {
+            font-size: 18px;
+            margin-bottom: 5px;
+        }
+
+        .sidebar-content {
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+        }
+
+        .sidebar-menu li {
+            margin-bottom: 10px;
+        }
+
+        .sidebar-menu a {
+            display: flex;
+            align-items: center;
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            padding: 8px 10px;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-menu a:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        .sidebar-menu a i {
+            margin-right: 10px;
+            width: 20px;
+            text-align: center;
+        }
+
+        .sidebar-footer {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .chat-main {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid #e1e1e1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .chat-header h2 {
+            font-size: 18px;
+            color: var(--primary-color);
+        }
+
+        .chat-header-actions button {
+            background: none;
+            border: none;
+            color: var(--dark-color);
+            cursor: pointer;
+            font-size: 16px;
+            margin-left: 15px;
+            opacity: 0.7;
+            transition: opacity 0.3s ease;
+        }
+
+        .chat-header-actions button:hover {
+            opacity: 1;
+        }
+
+        .chat-messages {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background-color: var(--bg-color);
+            transition: background-color var(--transition-speed) ease;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            max-width: 80%;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.user {
+            margin-left: auto;
+        }
+
+        .message-content {
+            padding: 12px 16px;
+            border-radius: 18px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        .user .message-content {
+            background-color: var(--accent-color);
+            color: white;
+            border-bottom-right-radius: 4px;
+            transition: background-color var(--transition-speed) ease;
+        }
+
+        .bot .message-content {
+            background-color: var(--message-bg);
+            border: 1px solid var(--border-color);
+            border-bottom-left-radius: 4px;
+            transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease;
+        }
+
+        .message-info {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .message-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            margin-right: 10px;
+            background-color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .user .message-info {
+            justify-content: flex-end;
+        }
+
+        .user .message-avatar {
+            order: 2;
+            margin-right: 0;
+            margin-left: 10px;
+            background-color: var(--accent-color);
+            transition: background-color var(--transition-speed) ease;
+        }
+
+        .message-time {
+            font-size: 12px;
+            color: #888;
+            margin-top: 5px;
+        }
+
+        .user .message-time {
+            text-align: right;
+        }
+
+        .chat-input {
+            padding: 15px 20px;
+            border-top: 1px solid var(--border-color);
+            background-color: var(--container-bg);
+            transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease;
+        }
+
+        .input-container {
+            display: flex;
+            align-items: center;
+            background-color: var(--input-bg);
+            border-radius: 24px;
+            padding: 8px 15px;
+            transition: all var(--transition-speed) ease;
+        }
+
+        .input-container:focus-within {
+            box-shadow: 0 0 0 2px var(--accent-color);
+            transition: box-shadow var(--transition-speed) ease;
+        }
+
+        .input-container input {
+            flex-grow: 1;
+            border: none;
+            background: none;
+            padding: 8px 0;
+            font-family: 'Poppins', sans-serif;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .input-actions {
+            display: flex;
+            align-items: center;
+        }
+
+        .input-actions button {
+            background: none;
+            border: none;
+            color: #888;
+            cursor: pointer;
+            font-size: 16px;
+            margin-left: 10px;
+            transition: color 0.3s ease;
+        }
+
+        .input-actions button:hover {
+            color: var(--accent-color);
+        }
+
+        .send-btn {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background-color var(--transition-speed) ease;
+            margin-left: 10px;
+        }
+
+        .send-btn:hover {
+            background-color: var(--primary-color);
+            opacity: 0.9;
+        }
+
+        /* Markdown styling */
+        .markdown h2 {
+            color: var(--primary-color);
+            margin-top: 16px;
+            margin-bottom: 10px;
+            font-size: 18px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 5px;
+            transition: color var(--transition-speed) ease, border-color var(--transition-speed) ease;
+        }
+
+        .markdown h3 {
+            color: var(--secondary-color);
+            margin-top: 14px;
+            margin-bottom: 8px;
+            font-size: 16px;
+            transition: color var(--transition-speed) ease;
+        }
+
+        .markdown ul, .markdown ol {
+            padding-left: 20px;
+            margin-bottom: 10px;
+        }
+
+        .markdown li {
+            margin-bottom: 5px;
+            position: relative;
+        }
+
+        .markdown ul li::before {
+            content: '';
+            position: absolute;
+            left: -15px;
+            top: 8px;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: var(--accent-color);
+            transition: background-color var(--transition-speed) ease;
+        }
+
+        .markdown p {
+            margin-bottom: 10px;
+            line-height: 1.6;
+        }
+
+        .markdown strong {
+            color: var(--primary-color);
+            font-weight: 600;
+            transition: color var(--transition-speed) ease;
+        }
+
+        .markdown em {
+            font-style: italic;
+            color: var(--secondary-color);
+            transition: color var(--transition-speed) ease;
+        }
+
+        .markdown blockquote {
+            border-left: 3px solid var(--accent-color);
+            padding: 10px 15px;
+            margin: 15px 0;
+            background-color: rgba(52, 152, 219, 0.1);
+            border-radius: 0 var(--border-radius) var(--border-radius) 0;
+            font-style: italic;
+            transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease;
+        }
+
+        .markdown code {
+            background-color: rgba(0, 0, 0, 0.05);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 90%;
+            color: var(--secondary-color);
+            transition: background-color var(--transition-speed) ease, color var(--transition-speed) ease;
+        }
+
+        .markdown a {
+            color: var(--accent-color);
+            text-decoration: none;
+            border-bottom: 1px dashed var(--accent-color);
+            padding-bottom: 1px;
+            transition: color var(--transition-speed) ease, border-color var(--transition-speed) ease;
+        }
+
+        .markdown a:hover {
+            text-decoration: none;
+            border-bottom: 1px solid var(--accent-color);
+        }
+
+        /* Enhanced message formatting */
+        .markdown .highlight {
+            background-color: rgba(255, 230, 0, 0.2);
+            padding: 0 3px;
+            border-radius: 3px;
+        }
+
+        .markdown .info-box,
+        .markdown .warning-box,
+        .markdown .error-box,
+        .markdown .success-box {
+            padding: 12px 15px;
+            margin: 15px 0;
+            border-radius: var(--border-radius);
+            position: relative;
+            padding-left: 40px;
+        }
+
+        .markdown .info-box::before,
+        .markdown .warning-box::before,
+        .markdown .error-box::before,
+        .markdown .success-box::before {
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 900;
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 18px;
+        }
+
+        .markdown .info-box {
+            background-color: rgba(52, 152, 219, 0.1);
+            border-left: 4px solid var(--info-color);
+        }
+
+        .markdown .info-box::before {
+            content: '\f05a';
+            color: var(--info-color);
+        }
+
+        .markdown .warning-box {
+            background-color: rgba(243, 156, 18, 0.1);
+            border-left: 4px solid var(--warning-color);
+        }
+
+        .markdown .warning-box::before {
+            content: '\f071';
+            color: var(--warning-color);
+        }
+
+        .markdown .error-box {
+            background-color: rgba(231, 76, 60, 0.1);
+            border-left: 4px solid var(--error-color);
+        }
+
+        .markdown .error-box::before {
+            content: '\f057';
+            color: var(--error-color);
+        }
+
+        .markdown .success-box {
+            background-color: rgba(46, 204, 113, 0.1);
+            border-left: 4px solid var(--success-color);
+        }
+
+        .markdown .success-box::before {
+            content: '\f058';
+            color: var(--success-color);
+        }
+
+        .sources-toggle {
+            font-size: 12px;
+            color: var(--accent-color);
+            cursor: pointer;
+            margin-top: 8px;
+            display: inline-block;
+        }
+
+        .sources-container {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 8px;
+            font-size: 13px;
+        }
+
+        .sources-container h5 {
+            font-size: 14px;
+            margin-bottom: 5px;
+            color: var(--primary-color);
+        }
+
+        .sources-container ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .sources-container li {
+            margin-bottom: 3px;
+        }
+
+        /* User onboarding */
+        .onboarding-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+
+        .onboarding-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .onboarding-modal {
+            background-color: var(--container-bg);
+            border-radius: var(--border-radius);
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: var(--box-shadow);
+            position: relative;
+            transform: translateY(20px);
+            transition: transform 0.3s ease;
+        }
+
+        .onboarding-overlay.active .onboarding-modal {
+            transform: translateY(0);
+        }
+
+        .onboarding-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            color: var(--text-color);
+            opacity: 0.7;
+            transition: opacity 0.3s ease;
+        }
+
+        .onboarding-close:hover {
+            opacity: 1;
+        }
+
+        .onboarding-title {
+            font-size: 24px;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+        }
+
+        .onboarding-content {
+            margin-bottom: 20px;
+        }
+
+        .onboarding-steps {
+            margin-bottom: 20px;
+        }
+
+        .onboarding-step {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: var(--border-radius);
+            background-color: rgba(0, 0, 0, 0.03);
+            transition: background-color 0.3s ease;
+        }
+
+        .onboarding-step:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        .onboarding-step-number {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background-color: var(--primary-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+
+        .onboarding-step-content {
+            flex-grow: 1;
+        }
+
+        .onboarding-step-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: var(--primary-color);
+        }
+
+        .onboarding-buttons {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .onboarding-btn {
+            padding: 8px 15px;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-family: 'Poppins', sans-serif;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .onboarding-btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+        }
+
+        .onboarding-btn-primary:hover {
+            background-color: var(--accent-color);
+        }
+
+        .onboarding-btn-secondary {
+            background: none;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+        }
+
+        .onboarding-btn-secondary:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        .sample-questions {
+            margin-top: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .sample-question {
+            background-color: rgba(52, 152, 219, 0.1);
+            border: 1px solid var(--accent-color);
+            border-radius: 20px;
+            padding: 5px 15px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: var(--accent-color);
+        }
+
+        .sample-question:hover {
+            background-color: var(--accent-color);
+            color: white;
+        }
+
+        /* Message reactions */
+        .message-reactions {
+            display: flex;
+            margin-top: 8px;
+            justify-content: flex-end;
+        }
+
+        .bot .message-reactions {
+            justify-content: flex-start;
+        }
+
+        .reaction-btn {
+            background: none;
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 3px 10px;
+            margin-right: 8px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            transition: all var(--transition-speed) ease;
+            color: var(--text-color);
+            opacity: 0.7;
+        }
+
+        .reaction-btn:hover {
+            opacity: 1;
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        .reaction-btn.active {
+            background-color: var(--accent-color);
+            color: white;
+            border-color: var(--accent-color);
+            opacity: 1;
+        }
+
+        .reaction-btn i {
+            margin-right: 5px;
+            font-size: 11px;
+        }
+
+        /* Loading animation */
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            padding: 10px 0;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            margin: 0 2px;
+            background-color: #bbb;
+            border-radius: 50%;
+            animation: typing-dot 1.4s infinite ease-in-out;
+        }
+
+        .typing-dot:nth-child(1) {
+            animation-delay: 0s;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typing-dot {
+            0%, 60%, 100% {
+                transform: translateY(0);
+                opacity: 0.6;
+            }
+            30% {
+                transform: translateY(-5px);
+                opacity: 1;
+            }
+        }
+
+        /* Responsive styles */
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .logo-container {
+                margin-bottom: 15px;
+            }
+
+            .school-selector {
+                width: 100%;
+            }
+
+            .school-selector select {
+                width: 100%;
+            }
+
+            .chat-container {
+                flex-direction: column;
+                height: calc(100vh - 180px);
+            }
+
+            .chat-sidebar {
+                width: 100%;
+                height: auto;
+                padding: 10px;
+                position: relative;
+            }
+
+            .sidebar-toggle {
+                display: block;
+                position: absolute;
+                right: 10px;
+                top: 10px;
+                background: none;
+                border: none;
+                color: var(--sidebar-text);
+                font-size: 18px;
+                cursor: pointer;
+                z-index: 10;
+            }
+
+            .sidebar-content {
+                display: none;
+                max-height: 0;
+                overflow: hidden;
+                transition: max-height var(--transition-speed) ease;
+            }
+
+            .sidebar-content.active {
+                display: block;
+                max-height: 300px;
+                overflow-y: auto;
+                margin-top: 15px;
+            }
+
+            .sidebar-header {
+                margin-bottom: 0;
+                padding-right: 30px; /* Space for toggle button */
+            }
+
+            .chat-main {
+                height: 100%;
+            }
+
+            .message {
+                max-width: 90%;
+            }
+
+            .chat-header-actions button {
+                margin-left: 10px;
+            }
+
+            .input-container {
+                padding: 6px 10px;
+            }
+
+            .input-actions button {
+                margin-left: 5px;
+            }
+
+            .send-btn {
+                width: 32px;
+                height: 32px;
+            }
+
+            /* Adjust message formatting for mobile */
+            .markdown .info-box,
+            .markdown .warning-box,
+            .markdown .error-box,
+            .markdown .success-box {
+                padding: 10px 10px 10px 35px;
+            }
+
+            .markdown .info-box::before,
+            .markdown .warning-box::before,
+            .markdown .error-box::before,
+            .markdown .success-box::before {
+                left: 10px;
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo-container">
+                <div class="logo" id="school-logo">
+                    <!-- School logo will be dynamically loaded based on selection -->
+                    <img id="school-logo-img" src="images/Star College Durban Boys High.png" alt="Star College Logo" class="school-logo-image">
+                </div>
+                <div class="logo-text">
+                    <h1>Star College Chatbot</h1>
+                    <p>Your virtual assistant for Star College information</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <div class="theme-toggle">
+                    <button id="theme-toggle-btn" title="Toggle dark/light mode">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                </div>
+                <div class="school-selector">
+                    <select id="school-select">
+                        <option value="all">All Star College Schools</option>
+                        <option value="boys-high">Star College Durban Boys High</option>
+                        <option value="girls-high">Star College Durban Girls High</option>
+                        <option value="primary">Star College Durban Primary</option>
+                        <option value="pre-primary">Little Dolphin Star Pre-Primary School</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="chat-container">
+            <div class="chat-sidebar">
+                <button class="sidebar-toggle" id="sidebar-toggle">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div class="sidebar-header">
+                    <h2>Star College</h2>
+                    <p>Durban Campus</p>
+                </div>
+                <div class="sidebar-content" id="sidebar-content">
+                    <ul class="sidebar-menu">
+                        <li><a href="#" class="sidebar-link" data-section="home"><i class="fas fa-home"></i> Home</a></li>
+                        <li><a href="#" class="sidebar-link" data-section="history"><i class="fas fa-history"></i> History</a></li>
+                        <li><a href="#" class="sidebar-link" data-section="academics"><i class="fas fa-graduation-cap"></i> Academics</a></li>
+                        <li><a href="#" class="sidebar-link" data-section="achievements"><i class="fas fa-trophy"></i> Achievements</a></li>
+                        <li><a href="#" class="sidebar-link" data-section="events"><i class="fas fa-calendar-alt"></i> Events</a></li>
+                        <li><a href="#" class="sidebar-link" data-section="admissions"><i class="fas fa-user-graduate"></i> Admissions</a></li>
+                        <li><a href="#" class="sidebar-link" data-section="curriculum"><i class="fas fa-book"></i> Curriculum</a></li>
+                        <li><a href="#" class="sidebar-link" data-section="contact"><i class="fas fa-phone"></i> Contact</a></li>
+                    </ul>
+                </div>
+                <div class="sidebar-footer">
+                    <p>© 2023 Star College Durban</p>
+                </div>
+            </div>
+
+            <div class="chat-main">
+                <div class="chat-header">
+                    <h2>Chat with Star College Assistant</h2>
+                    <div class="chat-header-actions">
+                        <button title="Clear chat"><i class="fas fa-trash"></i></button>
+                        <button title="Settings"><i class="fas fa-cog"></i></button>
+                    </div>
+                </div>
+
+                <div class="chat-messages" id="chat-messages">
+                    <!-- Welcome message -->
+                    <div class="message bot">
+                        <div class="message-info">
+                            <div class="message-avatar">SC</div>
+                        </div>
+                        <div class="message-content">
+                            <div class="markdown">
+                                <h2>Welcome to Star College Chatbot!</h2>
+                                <p>I'm here to help you learn about Star College in Durban. Feel free to ask me any questions about:</p>
+                                <ul>
+                                    <li>The school's <strong>history</strong> and founding</li>
+                                    <li>Academic programs and achievements</li>
+                                    <li>Facilities and campus information</li>
+                                    <li>Admission requirements</li>
+                                    <li>And more!</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="message-time">Just now</div>
+                    </div>
+                </div>
+
+                <div class="chat-input">
+                    <div class="input-container">
+                        <input type="text" id="user-input" placeholder="Type your question here..." value="What is the history of Star College?">
+                        <div class="input-actions">
+                            <button title="Attach file"><i class="fas fa-paperclip"></i></button>
+                            <button title="Emoji"><i class="far fa-smile"></i></button>
+                        </div>
+                        <button class="send-btn" id="send-btn" title="Send message">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Onboarding overlay -->
+    <div class="onboarding-overlay" id="onboarding-overlay">
+        <div class="onboarding-modal">
+            <button class="onboarding-close" id="onboarding-close">
+                <i class="fas fa-times"></i>
+            </button>
+            <h2 class="onboarding-title">Welcome to Star College Chatbot!</h2>
+            <div class="onboarding-content">
+                <p>This chatbot is designed to help you learn about Star College in Durban. Here's how to get started:</p>
+            </div>
+            <div class="onboarding-steps">
+                <div class="onboarding-step">
+                    <div class="onboarding-step-number">1</div>
+                    <div class="onboarding-step-content">
+                        <div class="onboarding-step-title">Select a School</div>
+                        <p>Choose a specific Star College school from the dropdown menu to get targeted information.</p>
+                    </div>
+                </div>
+                <div class="onboarding-step">
+                    <div class="onboarding-step-number">2</div>
+                    <div class="onboarding-step-content">
+                        <div class="onboarding-step-title">Ask Questions</div>
+                        <p>Type your questions in the chat box and press Enter or click the send button.</p>
+                    </div>
+                </div>
+                <div class="onboarding-step">
+                    <div class="onboarding-step-number">3</div>
+                    <div class="onboarding-step-content">
+                        <div class="onboarding-step-title">Provide Feedback</div>
+                        <p>Rate responses as helpful or not helpful to help improve the chatbot.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="sample-questions">
+                <div class="sample-question" data-question="What is the history of Star College?">What is the history of Star College?</div>
+                <div class="sample-question" data-question="What academic programs are offered?">What academic programs are offered?</div>
+                <div class="sample-question" data-question="How can I apply for admission?">How can I apply for admission?</div>
+                <div class="sample-question" data-question="What extracurricular activities are available?">What extracurricular activities are available?</div>
+            </div>
+            <div class="onboarding-buttons">
+                <button class="onboarding-btn onboarding-btn-secondary" id="onboarding-skip">Skip Tutorial</button>
+                <button class="onboarding-btn onboarding-btn-primary" id="onboarding-start">Get Started</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const chatMessages = document.getElementById('chat-messages');
+            const userInput = document.getElementById('user-input');
+            const sendButton = document.getElementById('send-btn');
+            const clearButton = document.querySelector('.chat-header-actions button:first-child');
+            const themeToggleBtn = document.getElementById('theme-toggle-btn');
+            const sidebarToggleBtn = document.getElementById('sidebar-toggle');
+            const sidebarContent = document.getElementById('sidebar-content');
+            const schoolSelect = document.getElementById('school-select');
+            const onboardingOverlay = document.getElementById('onboarding-overlay');
+            const onboardingClose = document.getElementById('onboarding-close');
+            const onboardingSkip = document.getElementById('onboarding-skip');
+            const onboardingStart = document.getElementById('onboarding-start');
+            const sampleQuestions = document.querySelectorAll('.sample-question');
+
+            // Set up marked.js options
+            marked.setOptions({
+                breaks: true,  // Add line breaks
+                gfm: true,     // GitHub Flavored Markdown
+                renderer: (function() {
+                    const renderer = new marked.Renderer();
+
+                    // Override link renderer to add target="_blank" and rel="noopener noreferrer"
+                    const linkRenderer = renderer.link;
+                    renderer.link = function(href, title, text) {
+                        const html = linkRenderer.call(this, href, title, text);
+                        return html.replace(/^<a /, '<a target="_blank" rel="noopener noreferrer" ');
+                    };
+
+                    return renderer;
+                })()
+            });
+
+            // Initialize theme from localStorage or default to light
+            initTheme();
+
+            // Initialize school-specific theme
+            updateSchoolTheme(schoolSelect.value);
+
+            // Show onboarding if it's the first visit
+            initOnboarding();
+
+            // Add event listeners to sidebar links
+            document.querySelectorAll('.sidebar-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const section = this.getAttribute('data-section');
+                    handleSidebarClick(section);
+                });
+            });
+
+            // Theme toggle functionality
+            themeToggleBtn.addEventListener('click', function() {
+                document.body.classList.toggle('dark-theme');
+
+                // Update icon
+                const icon = themeToggleBtn.querySelector('i');
+                if (document.body.classList.contains('dark-theme')) {
+                    icon.classList.remove('fa-moon');
+                    icon.classList.add('fa-sun');
+                    localStorage.setItem('theme', 'dark');
+                } else {
+                    icon.classList.remove('fa-sun');
+                    icon.classList.add('fa-moon');
+                    localStorage.setItem('theme', 'light');
+                }
+            });
+
+            // Sidebar toggle for mobile
+            sidebarToggleBtn.addEventListener('click', function() {
+                sidebarContent.classList.toggle('active');
+
+                // Update icon
+                const icon = sidebarToggleBtn.querySelector('i');
+                if (sidebarContent.classList.contains('active')) {
+                    icon.classList.remove('fa-bars');
+                    icon.classList.add('fa-times');
+                } else {
+                    icon.classList.remove('fa-times');
+                    icon.classList.add('fa-bars');
+                }
+            });
+
+            // School selector change event
+            schoolSelect.addEventListener('change', function() {
+                updateSchoolTheme(this.value);
+            });
+
+            // Clear chat
+            clearButton.addEventListener('click', function() {
+                // Keep only the welcome message
+                while (chatMessages.children.length > 1) {
+                    chatMessages.removeChild(chatMessages.lastChild);
+                }
+            });
+
+            sendButton.addEventListener('click', async function() {
+                sendMessage();
+            });
+
+            // Allow pressing Enter to send message
+            userInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendMessage();
+                }
+            });
+
+            // Initialize theme from localStorage
+            function initTheme() {
+                const savedTheme = localStorage.getItem('theme');
+                if (savedTheme === 'dark') {
+                    document.body.classList.add('dark-theme');
+                    const icon = themeToggleBtn.querySelector('i');
+                    icon.classList.remove('fa-moon');
+                    icon.classList.add('fa-sun');
+                }
+            }
+
+            // Update theme based on selected school
+            function updateSchoolTheme(school) {
+                // Remove any existing school theme classes
+                document.body.classList.remove('boys-high-theme', 'girls-high-theme', 'primary-theme', 'pre-primary-theme');
+
+                // Get logo element
+                const schoolLogoImg = document.getElementById('school-logo-img');
+
+                // Add the appropriate theme class and update logo
+                if (school === 'boys-high') {
+                    document.body.classList.add('boys-high-theme');
+                    updateUserInputColor('#3498db'); // Blue
+
+                    // Update logo for Boys High
+                    schoolLogoImg.src = 'images/Star College Durban Boys High.png';
+                    schoolLogoImg.alt = 'Star College Durban Boys High';
+
+                } else if (school === 'girls-high') {
+                    document.body.classList.add('girls-high-theme');
+                    updateUserInputColor('#e84393'); // Pink/Purple
+
+                    // Update logo for Girls High
+                    schoolLogoImg.src = 'images/Star College Durban Girls High.png';
+                    schoolLogoImg.alt = 'Star College Durban Girls High';
+
+                } else if (school === 'primary') {
+                    document.body.classList.add('primary-theme');
+                    updateUserInputColor('#27ae60'); // Green
+
+                    // Update logo for Primary
+                    schoolLogoImg.src = 'images/Star College Durban Primary.png';
+                    schoolLogoImg.alt = 'Star College Durban Primary';
+
+                } else if (school === 'pre-primary') {
+                    document.body.classList.add('pre-primary-theme');
+                    updateUserInputColor('#e67e22'); // Orange
+
+                    // Update logo for Pre-Primary
+                    schoolLogoImg.src = 'images/Little Dolphin Star Pre-Primary School.png';
+                    schoolLogoImg.alt = 'Little Dolphin Star Pre-Primary School';
+
+                } else {
+                    // Default color for 'all' option
+                    updateUserInputColor('#3498db'); // Default blue
+
+                    // Default logo (fallback to Boys High if default not available)
+                    schoolLogoImg.src = 'images/Star College Durban Boys High.png';
+                    schoolLogoImg.alt = 'Star College Durban';
+                }
+
+                // Add error handling for logo loading
+                schoolLogoImg.onerror = function() {
+                    console.warn(`Failed to load logo: ${schoolLogoImg.src}`);
+                    // Fallback to a default logo or placeholder
+                    this.src = 'images/Star College Durban Boys High.png';
+                    // If default also fails, use a data URI for a simple placeholder
+                    this.onerror = function() {
+                        this.src = 'data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2280%22%20height%3D%2280%22%20viewBox%3D%220%200%2080%2080%22%3E%3Ctext%20x%3D%2240%22%20y%3D%2240%22%20font-family%3D%22Arial%22%20font-size%3D%2214%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3EStar%20College%3C%2Ftext%3E%3C%2Fsvg%3E';
+                        this.onerror = null;
+                    };
+                };
+            }
+
+            // Update the color of user input text and related elements
+            function updateUserInputColor(color) {
+                // Update CSS variables for user messages
+                document.documentElement.style.setProperty('--accent-color', color);
+
+                // Update existing user messages if any
+                const userMessages = document.querySelectorAll('.message.user .message-content');
+                userMessages.forEach(message => {
+                    message.style.backgroundColor = color;
+                });
+
+                // Update user avatars
+                const userAvatars = document.querySelectorAll('.message.user .message-avatar');
+                userAvatars.forEach(avatar => {
+                    avatar.style.backgroundColor = color;
+                });
+            }
+
+            // Initialize onboarding
+            function initOnboarding() {
+                // Check if user has seen onboarding before
+                const hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding');
+
+                if (!hasSeenOnboarding) {
+                    // Show onboarding overlay with animation
+                    setTimeout(() => {
+                        onboardingOverlay.classList.add('active');
+                    }, 1000);
+                }
+
+                // Close onboarding when close button is clicked
+                onboardingClose.addEventListener('click', closeOnboarding);
+
+                // Close onboarding when skip button is clicked
+                onboardingSkip.addEventListener('click', closeOnboarding);
+
+                // Close onboarding and focus input when start button is clicked
+                onboardingStart.addEventListener('click', function() {
+                    closeOnboarding();
+                    userInput.focus();
+                });
+
+                // Handle sample question clicks
+                sampleQuestions.forEach(question => {
+                    question.addEventListener('click', function() {
+                        const questionText = this.getAttribute('data-question');
+                        userInput.value = questionText;
+                        closeOnboarding();
+                        // Wait a bit before sending to allow the user to see the question
+                        setTimeout(() => {
+                            sendMessage();
+                        }, 500);
+                    });
+                });
+            }
+
+            // Close onboarding and mark as seen
+            function closeOnboarding() {
+                onboardingOverlay.classList.remove('active');
+                localStorage.setItem('hasSeenOnboarding', 'true');
+            }
+
+            // Handle sidebar link clicks
+            function handleSidebarClick(section) {
+                // Define questions for each section
+                const sectionQuestions = {
+                    'home': 'Tell me about Star College Durban',
+                    'history': 'What is the history of Star College?',
+                    'academics': 'What academic programs does Star College offer?',
+                    'achievements': 'What are some notable achievements of Star College students?',
+                    'events': 'What events are held at Star College?',
+                    'admissions': 'How can I apply for admission to Star College?',
+                    'curriculum': 'What curriculum does Star College follow?',
+                    'contact': 'How can I contact Star College?'
+                };
+
+                // Get the question for the clicked section
+                const question = sectionQuestions[section];
+
+                // Set the question in the input field
+                userInput.value = question;
+
+                // Send the message
+                sendMessage();
+
+                // On mobile, close the sidebar after clicking
+                if (window.innerWidth <= 768) {
+                    sidebarContent.classList.remove('active');
+                    const icon = sidebarToggleBtn.querySelector('i');
+                    icon.classList.remove('fa-times');
+                    icon.classList.add('fa-bars');
+                }
+            }
+
+            async function sendMessage() {
+                const question = userInput.value.trim();
+                if (!question) return;
+
+                // Add user message
+                addMessage(question, 'user');
+
+                // Clear input
+                userInput.value = '';
+
+                // Add typing indicator
+                const typingIndicator = document.createElement('div');
+                typingIndicator.className = 'message bot';
+                typingIndicator.innerHTML = `
+                    <div class="message-info">
+                        <div class="message-avatar">SC</div>
+                    </div>
+                    <div class="message-content">
+                        <div class="typing-indicator">
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
+                        </div>
+                    </div>
+                `;
+                chatMessages.appendChild(typingIndicator);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+
+                try {
+                    // Get selected school
+                    const schoolSelect = document.getElementById('school-select');
+                    const selectedSchool = schoolSelect.value;
+
+                    // Make API call
+                    const response = await fetch('http://localhost:8000/chat?store_type=chroma', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            question: question,
+                            school: selectedSchool
+                        })
+                    });
+
+                    // Remove typing indicator
+                    chatMessages.removeChild(typingIndicator);
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        addMessage(data.answer, 'bot', true);
+
+                        // Add sources if available
+                        if (data.sources && data.sources.length > 0) {
+                            addSources(data.sources);
+                        }
+                    } else {
+                        const errorText = await response.text();
+                        addMessage(`Error: ${response.status} - ${errorText}`, 'bot');
+                    }
+                } catch (error) {
+                    // Remove typing indicator
+                    chatMessages.removeChild(typingIndicator);
+
+                    // Add error message
+                    addMessage(`Error: ${error.message}`, 'bot');
+                }
+            }
+
+            function addMessage(text, type, parseMarkdown = false) {
+                const now = new Date();
+                const timeString = now.getHours().toString().padStart(2, '0') + ':' +
+                                  now.getMinutes().toString().padStart(2, '0');
+
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${type}`;
+                messageDiv.style.opacity = '0';
+                messageDiv.style.transform = 'translateY(10px)';
+
+                let avatar = type === 'user' ? 'You' : 'SC';
+
+                let messageHTML = `
+                    <div class="message-info">
+                        <div class="message-avatar">${avatar}</div>
+                    </div>
+                    <div class="message-content">
+                `;
+
+                if (parseMarkdown && type === 'bot') {
+                    // Process special formatting for enhanced message display
+                    let processedText = text
+                        // Convert **not confirm** to highlighted text
+                        .replace(/\*\*not confirm\*\*/gi, '<span class="highlight"><strong>not confirm</strong></span>')
+                        // Convert info boxes
+                        .replace(/\[!INFO\]([\s\S]*?)\[\/INFO\]/g, '<div class="info-box">$1</div>')
+                        // Convert warning boxes
+                        .replace(/\[!WARNING\]([\s\S]*?)\[\/WARNING\]/g, '<div class="warning-box">$1</div>')
+                        // Convert error boxes
+                        .replace(/\[!ERROR\]([\s\S]*?)\[\/ERROR\]/g, '<div class="error-box">$1</div>')
+                        // Convert success boxes
+                        .replace(/\[!SUCCESS\]([\s\S]*?)\[\/SUCCESS\]/g, '<div class="success-box">$1</div>');
+
+                    messageHTML += `<div class="markdown">${marked.parse(processedText)}</div>`;
+                } else {
+                    messageHTML += `<p>${text}</p>`;
+                }
+
+                messageHTML += `
+                    </div>
+                    <div class="message-time">${timeString}</div>
+                `;
+
+                // Add reactions for bot messages
+                if (type === 'bot') {
+                    messageHTML += `
+                        <div class="message-reactions">
+                            <button class="reaction-btn" data-reaction="helpful">
+                                <i class="far fa-thumbs-up"></i> Helpful
+                            </button>
+                            <button class="reaction-btn" data-reaction="not-helpful">
+                                <i class="far fa-thumbs-down"></i> Not helpful
+                            </button>
+                        </div>
+                    `;
+                }
+
+                messageDiv.innerHTML = messageHTML;
+                chatMessages.appendChild(messageDiv);
+
+                // Add reaction event listeners
+                if (type === 'bot') {
+                    const reactionButtons = messageDiv.querySelectorAll('.reaction-btn');
+                    reactionButtons.forEach(button => {
+                        button.addEventListener('click', function() {
+                            // Toggle active state
+                            reactionButtons.forEach(btn => btn.classList.remove('active'));
+                            this.classList.add('active');
+
+                            // Here you would typically send feedback to the server
+                            const reaction = this.getAttribute('data-reaction');
+                            console.log(`User rated message as: ${reaction}`);
+                        });
+                    });
+                }
+
+                // Animate the message appearance
+                setTimeout(() => {
+                    messageDiv.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                    messageDiv.style.opacity = '1';
+                    messageDiv.style.transform = 'translateY(0)';
+                }, 10);
+
+                // Scroll to bottom
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+
+                return messageDiv;
+            }
+
+            function addSources(sources) {
+                let sourcesHtml = '<h5>Sources:</h5><ul>';
+
+                sources.forEach(source => {
+                    const metadata = source.metadata;
+                    let sourceInfo = '';
+
+                    if (metadata.source_type === 'web') {
+                        sourceInfo = `<a href="${metadata.url}" target="_blank" rel="noopener noreferrer">${metadata.title || metadata.url}</a>`;
+                    } else if (metadata.source_type === 'file') {
+                        sourceInfo = `File: ${metadata.filename}`;
+                        if (metadata.page) {
+                            sourceInfo += `, Page: ${metadata.page}`;
+                        }
+                    }
+
+                    sourcesHtml += `<li>${sourceInfo}</li>`;
+                });
+
+                sourcesHtml += '</ul>';
+
+                const lastBotMessage = Array.from(chatMessages.querySelectorAll('.message.bot')).pop();
+
+                if (lastBotMessage) {
+                    const messageContent = lastBotMessage.querySelector('.message-content');
+
+                    // Add sources toggle
+                    const sourcesToggle = document.createElement('div');
+                    sourcesToggle.className = 'sources-toggle';
+                    sourcesToggle.textContent = 'Show sources';
+                    messageContent.appendChild(sourcesToggle);
+
+                    // Add sources container (hidden by default)
+                    const sourcesContainer = document.createElement('div');
+                    sourcesContainer.className = 'sources-container';
+                    sourcesContainer.style.display = 'none';
+                    sourcesContainer.innerHTML = sourcesHtml;
+                    messageContent.appendChild(sourcesContainer);
+
+                    // Add toggle functionality
+                    sourcesToggle.addEventListener('click', function() {
+                        const isHidden = sourcesContainer.style.display === 'none';
+                        sourcesContainer.style.display = isHidden ? 'block' : 'none';
+                        sourcesToggle.textContent = isHidden ? 'Hide sources' : 'Show sources';
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                    });
+                }
+            }
+        });
+    </script>
+</body>
+</html>

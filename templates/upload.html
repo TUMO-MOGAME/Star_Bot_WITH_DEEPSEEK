@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Files - Star College Chatbot</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header class="text-center my-4">
+            <h1>Star College Chatbot</h1>
+            <p class="lead">Upload information about Star College</p>
+            <nav class="my-3">
+                <a href="/" class="btn btn-secondary">Chat</a>
+                <a href="/upload-page" class="btn btn-primary">Upload Files</a>
+            </nav>
+        </header>
+
+        <main>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h2 class="h5 mb-0">Upload Files</h2>
+                        </div>
+                        <div class="card-body">
+                            <form id="upload-form" enctype="multipart/form-data">
+                                <div class="mb-3">
+                                    <label for="files" class="form-label">Select Files</label>
+                                    <input type="file" id="files" name="files" class="form-control" multiple required>
+                                    <div class="form-text">
+                                        Supported formats: PDF, DOCX, DOC, JPG, JPEG, PNG, BMP, TIFF, TXT, MD, HTML
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="store-type" class="form-label">Vector Store</label>
+                                    <select id="store-type" name="store-type" class="form-select">
+                                        <option value="chroma" selected>ChromaDB</option>
+                                        <option value="faiss">FAISS</option>
+                                    </select>
+                                    <div class="form-text">
+                                        Choose the vector store to use for document storage and retrieval.
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Upload</button>
+                            </form>
+                            <div id="upload-status" class="mt-3"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h2 class="h5 mb-0">Scrape Websites</h2>
+                        </div>
+                        <div class="card-body">
+                            <form id="scrape-form">
+                                <div class="mb-3">
+                                    <label for="urls" class="form-label">Website URLs</label>
+                                    <textarea id="urls" name="urls" class="form-control" rows="4" placeholder="Enter one URL per line" required></textarea>
+                                    <div class="form-text">
+                                        Enter URLs of Star College related websites
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="scrape-store-type" class="form-label">Vector Store</label>
+                                    <select id="scrape-store-type" name="scrape-store-type" class="form-select">
+                                        <option value="chroma" selected>ChromaDB</option>
+                                        <option value="faiss">FAISS</option>
+                                    </select>
+                                    <div class="form-text">
+                                        Choose the vector store to use for document storage and retrieval.
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Scrape</button>
+                            </form>
+                            <div id="scrape-status" class="mt-3"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="text-center mt-4">
+            <p>&copy; 2023 Star College Chatbot</p>
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const uploadForm = document.getElementById('upload-form');
+            const uploadStatus = document.getElementById('upload-status');
+            const scrapeForm = document.getElementById('scrape-form');
+            const scrapeStatus = document.getElementById('scrape-status');
+
+            // Handle file uploads
+            uploadForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+
+                const formData = new FormData();
+                const fileInput = document.getElementById('files');
+
+                if (fileInput.files.length === 0) {
+                    uploadStatus.innerHTML = '<div class="alert alert-danger">Please select at least one file</div>';
+                    return;
+                }
+
+                for (const file of fileInput.files) {
+                    formData.append('files', file);
+                }
+
+                uploadStatus.innerHTML = '<div class="alert alert-info">Uploading files...</div>';
+
+                try {
+                    const storeType = document.getElementById('store-type').value;
+                    const response = await fetch(`/upload?store_type=${storeType}`, {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const data = await response.json();
+
+                    let statusHTML = '<div class="alert alert-success">Upload complete</div>';
+                    statusHTML += '<ul class="list-group mt-2">';
+
+                    for (const result of data.results) {
+                        const statusClass = result.status === 'success' ? 'list-group-item-success' : 'list-group-item-danger';
+                        statusHTML += `<li class="list-group-item ${statusClass}">
+                            <strong>${result.filename}</strong>: ${result.message}
+                        </li>`;
+                    }
+
+                    statusHTML += '</ul>';
+                    uploadStatus.innerHTML = statusHTML;
+
+                    // Reset form
+                    uploadForm.reset();
+                } catch (error) {
+                    console.error('Error:', error);
+                    uploadStatus.innerHTML = '<div class="alert alert-danger">Error uploading files. Please try again.</div>';
+                }
+            });
+
+            // Handle website scraping
+            scrapeForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+
+                const urlsText = document.getElementById('urls').value.trim();
+                if (!urlsText) {
+                    scrapeStatus.innerHTML = '<div class="alert alert-danger">Please enter at least one URL</div>';
+                    return;
+                }
+
+                const urls = urlsText.split('\n')
+                    .map(url => url.trim())
+                    .filter(url => url !== '');
+
+                if (urls.length === 0) {
+                    scrapeStatus.innerHTML = '<div class="alert alert-danger">Please enter at least one valid URL</div>';
+                    return;
+                }
+
+                scrapeStatus.innerHTML = '<div class="alert alert-info">Scraping websites...</div>';
+
+                try {
+                    const storeType = document.getElementById('scrape-store-type').value;
+                    const response = await fetch(`/scrape?store_type=${storeType}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ urls })
+                    });
+
+                    const data = await response.json();
+
+                    let statusHTML = '<div class="alert alert-success">Scraping complete</div>';
+                    statusHTML += '<ul class="list-group mt-2">';
+
+                    for (const result of data.results) {
+                        const statusClass = result.status === 'success' ? 'list-group-item-success' : 'list-group-item-danger';
+                        statusHTML += `<li class="list-group-item ${statusClass}">
+                            <strong>${result.url}</strong>: ${result.message}
+                        </li>`;
+                    }
+
+                    statusHTML += '</ul>';
+                    scrapeStatus.innerHTML = statusHTML;
+
+                    // Reset form
+                    scrapeForm.reset();
+                } catch (error) {
+                    console.error('Error:', error);
+                    scrapeStatus.innerHTML = '<div class="alert alert-danger">Error scraping websites. Please try again.</div>';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

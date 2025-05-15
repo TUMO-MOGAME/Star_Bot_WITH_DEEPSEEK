@@ -1,0 +1,190 @@
+/* Star College Theme CSS */
+:root {
+    /* Primary colors based on the Star College logos */
+    --boys-high-color: #0a3d62; /* Dark blue */
+    --girls-high-color: #8e44ad; /* Purple */
+    --primary-color: #2c3e50; /* Dark blue-gray */
+    --secondary-color: #e74c3c; /* Red */
+    --primary-accent: #3498db; /* Light blue */
+    --secondary-accent: #2ecc71; /* Green */
+    --pre-primary-accent: #f39c12; /* Orange */
+    
+    /* UI Colors */
+    --light-bg: #f5f6fa;
+    --dark-bg: #2c3e50;
+    --light-text: #f5f6fa;
+    --dark-text: #2c3e50;
+    --border-color: #e1e1e1;
+    --success-color: #2ecc71;
+    --warning-color: #f39c12;
+    --error-color: #e74c3c;
+    
+    /* UI Elements */
+    --border-radius: 10px;
+    --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --transition-speed: 0.3s;
+}
+
+/* Typography */
+body {
+    font-family: 'Poppins', sans-serif;
+    color: var(--dark-text);
+    line-height: 1.6;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+/* Buttons */
+.btn {
+    display: inline-block;
+    padding: 8px 16px;
+    border-radius: var(--border-radius);
+    font-weight: 500;
+    text-align: center;
+    cursor: pointer;
+    transition: all var(--transition-speed) ease;
+    border: none;
+    outline: none;
+}
+
+.btn-primary {
+    background-color: var(--primary-color);
+    color: var(--light-text);
+}
+
+.btn-primary:hover {
+    background-color: #1e2b3a;
+}
+
+.btn-secondary {
+    background-color: var(--secondary-color);
+    color: var(--light-text);
+}
+
+.btn-secondary:hover {
+    background-color: #c0392b;
+}
+
+.btn-accent {
+    background-color: var(--primary-accent);
+    color: var(--light-text);
+}
+
+.btn-accent:hover {
+    background-color: #2980b9;
+}
+
+/* Cards */
+.card {
+    background-color: white;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    overflow: hidden;
+}
+
+.card-header {
+    padding: 15px 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.card-body {
+    padding: 20px;
+}
+
+.card-footer {
+    padding: 15px 20px;
+    border-top: 1px solid var(--border-color);
+}
+
+/* School-specific styles */
+.boys-high-theme {
+    --primary-color: var(--boys-high-color);
+}
+
+.girls-high-theme {
+    --primary-color: var(--girls-high-color);
+}
+
+.primary-theme {
+    --primary-color: var(--secondary-accent);
+}
+
+.pre-primary-theme {
+    --primary-color: var(--pre-primary-accent);
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease forwards;
+}
+
+/* Responsive utilities */
+@media (max-width: 768px) {
+    .hide-mobile {
+        display: none !important;
+    }
+}
+
+@media (min-width: 769px) {
+    .hide-desktop {
+        display: none !important;
+    }
+}
+
+/* Logo styles */
+.school-logo {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: white;
+    box-shadow: var(--box-shadow);
+}
+
+.school-logo img {
+    width: 80%;
+    height: 80%;
+    object-fit: contain;
+}
+
+/* School badges */
+.school-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-right: 8px;
+}
+
+.boys-high-badge {
+    background-color: rgba(10, 61, 98, 0.1);
+    color: var(--boys-high-color);
+}
+
+.girls-high-badge {
+    background-color: rgba(142, 68, 173, 0.1);
+    color: var(--girls-high-color);
+}
+
+.primary-badge {
+    background-color: rgba(46, 204, 113, 0.1);
+    color: var(--secondary-accent);
+}
+
+.pre-primary-badge {
+    background-color: rgba(243, 156, 18, 0.1);
+    color: var(--pre-primary-accent);
+}
