@@ -1493,7 +1493,7 @@
                     const selectedSchool = schoolSelect.value;
 
                     // Make API call
-                    const response = await fetch('http://localhost:8000/chat?store_type=chroma', {
+                    const response = await fetch('/chat?store_type=chroma', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
