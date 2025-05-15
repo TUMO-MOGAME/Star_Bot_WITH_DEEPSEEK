@@ -1493,7 +1493,7 @@
                     const selectedSchool = schoolSelect.value;
 
                     // Make API call
-                    const response = await fetch('/chat?store_type=chroma', {
+                    const response = await fetch('/chat', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
