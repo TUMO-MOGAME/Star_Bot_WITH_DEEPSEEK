@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
+import os
 
 from app.routes import upload, scrape, chat
 from app.config import HOST, PORT, DEBUG
@@ -25,6 +26,7 @@ app.add_middleware(
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/images", StaticFiles(directory="images"), name="images")
 
 # Set up templates
 templates = Jinja2Templates(directory="templates")
@@ -34,10 +36,11 @@ app.include_router(upload.router, tags=["Upload"])
 app.include_router(scrape.router, tags=["Scrape"])
 app.include_router(chat.router, tags=["Chat"])
 
+# Route for root to serve the custom index.html from the project root
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
-    """Render the main page."""
-    return templates.TemplateResponse("index.html", {"request": request})
+async def custom_index():
+    with open(os.path.join(os.path.dirname(__file__), "..", "index.html"), encoding="utf-8") as f:
+        return HTMLResponse(content=f.read())
 
 @app.get("/upload-page", response_class=HTMLResponse)
 async def upload_page(request: Request):
