@@ -1,13 +1,13 @@
 # Star College Chatbot
 
-A chatbot for Star College in Durban that answers questions based on uploaded information about the school using LangChain and ChromaDB.
+A chatbot for Star College in Durban that answers questions based on uploaded information about the school using LangChain and **Qdrant Cloud** (external vector database).
 
 ## Features
 
 - Upload and process various file types (PDFs, Word documents, images, text files)
 - Scrape and process websites for information
 - Beautiful, responsive chat interface to ask questions about Star College
-- Retrieval-augmented generation using LangChain with ChromaDB
+- Retrieval-augmented generation using LangChain with **Qdrant Cloud**
 - Support for all Star College schools (Boys High, Girls High, Primary, Pre-Primary)
 - Markdown rendering for structured responses
 - Sources display for transparent information
@@ -37,7 +37,7 @@ FastAPI Routes:
 
 ### Embedding:
 - Uses BAAI/bge-small-en-v1.5 for embeddings via LangChain HuggingFaceEmbeddings
-- Stores in ChromaDB
+- Stores in **Qdrant Cloud** (external vector DB)
 
 ### Chat Logic:
 - User input → embedding → retrieve top-k chunks from vector store
@@ -48,7 +48,7 @@ FastAPI Routes:
 - **Backend**: FastAPI
 - **LangChain**: For document loading, embedding, vector stores, and LLM integration
 - **Embedding Model**: BAAI/bge-small-en-v1.5 via HuggingFaceEmbeddings
-- **Vector Store**: ChromaDB: For persistent, high-quality vector storage
+- **Vector Store**: **Qdrant Cloud** (remote, scalable vector DB)
 - **LLM**: DeepSeek-Chat 7B via HuggingFaceHub
 - **File Processing**: LangChain document loaders
 - **Web Scraping**: LangChain WebBaseLoader
@@ -71,12 +71,25 @@ FastAPI Routes:
    ```
    pip install -r requirements.txt
    ```
-4. Create a `.env` file based on `.env.example` and add your API keys
+4. Create a `.env` file (see below for Qdrant setup)
 5. Run the application:
    ```
    python -m app.main
    ```
 6. Open your browser and navigate to `http://localhost:8080`
+
+## Qdrant Cloud Setup
+
+1. [Sign up for Qdrant Cloud](https://cloud.qdrant.io/) and create a free cluster.
+2. Copy your Qdrant Cloud **cluster URL** and **API key**.
+3. Create a `.env` file in your project root with the following:
+   ```env
+   QDRANT_URL=https://YOUR-CLUSTER-URL:6333
+   QDRANT_API_KEY=YOUR_QDRANT_API_KEY
+   VECTOR_STORE_TYPE=qdrant
+   ```
+4. (Optional) You can use `.env.qdrant` as a template and copy it to `.env`.
+5. When running locally or on Render, the app will use Qdrant Cloud for all vector storage and retrieval.
 
 ## Using the Chatbot
 
@@ -140,6 +153,13 @@ This application is optimized for deployment on Render:
 1. Use Render's Background Worker for indexing (processing PDFs, websites)
 2. Deploy FastAPI app as a Web Service
 3. For LLM integration, use Hugging Face Inference API
+4. **Qdrant Cloud**: Set your QDRANT_URL and QDRANT_API_KEY as environment variables in the Render dashboard for both services.
+
+## Migrating from ChromaDB (Legacy)
+
+- The app previously used ChromaDB for local vector storage. All ChromaDB logic and files have been removed.
+- All vector storage and retrieval is now handled by Qdrant Cloud.
+- You can safely delete any `chroma` or `faiss` folders in `data/` if not using legacy data.
 
 ## License
 

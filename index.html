@@ -1493,14 +1493,15 @@
                     const selectedSchool = schoolSelect.value;
 
                     // Make API call
-                    const response = await fetch('/chat?store_type=chroma', {
+                    const response = await fetch('/chat', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({
                             question: question,
-                            school: selectedSchool
+                            school: selectedSchool,
+                            history: [] // Always send history for backend compatibility
                         })
                     });
 
@@ -1517,6 +1518,7 @@
                         }
                     } else {
                         const errorText = await response.text();
+                        console.error('Backend error:', response.status, errorText); // Add error logging
                         addMessage(`Error: ${response.status} - ${errorText}`, 'bot');
                     }
                 } catch (error) {

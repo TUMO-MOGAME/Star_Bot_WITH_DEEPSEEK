@@ -5,7 +5,7 @@
 
 class StarCollegeChatbot {
     constructor() {
-        this.apiUrl = 'http://localhost:8000/chat';
+        this.apiUrl = '/chat'; // Use relative path for Render compatibility
         this.chatMessages = document.getElementById('chat-messages');
         this.userInput = document.getElementById('user-input');
         this.sendButton = document.getElementById('send-btn');
@@ -129,7 +129,7 @@ class StarCollegeChatbot {
             const selectedSchool = this.schoolSelect ? this.schoolSelect.value : 'all';
             
             // Make API call
-            const response = await fetch(`${this.apiUrl}?store_type=chroma`, {
+            const response = await fetch(`${this.apiUrl}?store_type=qdrant`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
