@@ -1500,7 +1500,8 @@
                         },
                         body: JSON.stringify({
                             question: question,
-                            school: selectedSchool
+                            school: selectedSchool,
+                            history: [] // Always send history for backend compatibility
                         })
                     });
 
@@ -1517,6 +1518,7 @@
                         }
                     } else {
                         const errorText = await response.text();
+                        console.error('Backend error:', response.status, errorText); // Add error logging
                         addMessage(`Error: ${response.status} - ${errorText}`, 'bot');
                     }
                 } catch (error) {
