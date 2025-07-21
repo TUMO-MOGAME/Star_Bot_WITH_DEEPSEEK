@@ -3,6 +3,8 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import os
 import httpx
+import hashlib
+import time
 
 # Create FastAPI app
 app = FastAPI(
@@ -22,6 +24,10 @@ app.add_middleware(
 
 # Get environment variables
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
+
+# Simple in-memory cache for faster responses
+response_cache = {}
+CACHE_DURATION = 300  # 5 minutes cache
 
 # Main page route - serve the existing index.html
 @app.get("/", response_class=HTMLResponse)
@@ -78,21 +84,28 @@ async def chat(request: Request):
                 "metadata": {}
             }
 
-        # Create system prompt based on selected school
-        system_prompt = """You are a helpful assistant for Star College in Durban, South Africa.
+        # Check cache for faster responses
+        cache_key = hashlib.md5(f"{message.lower().strip()}_{selected_school}".encode()).hexdigest()
+        current_time = time.time()
 
-Star College is a prestigious educational institution with multiple schools:
-- Star College Durban Boys High School
-- Star College Durban Girls High School
-- Star College Durban Primary School
-- Little Dolphin Star Pre-Primary School
+        if cache_key in response_cache:
+            cached_response, cache_time = response_cache[cache_key]
+            if current_time - cache_time < CACHE_DURATION:
+                print(f"Cache hit for: {message[:30]}...")
+                cached_response["metadata"]["cached"] = True
+                return cached_response
 
-Provide helpful, accurate, and friendly information about Star College. Be conversational and informative."""
+        # Create concise system prompt for faster processing
+        system_prompt = f"You are a helpful assistant for Star College in Durban, South Africa. Star College has Boys High, Girls High, Primary, and Pre-Primary schools. Provide concise, accurate information about Star College."
 
         if selected_school and selected_school != "All Star College Schools":
-            system_prompt += f"\n\nThe user is specifically asking about {selected_school}. Focus your response on this particular school when relevant."
+            system_prompt += f" Focus on {selected_school}."
 
-        async with httpx.AsyncClient() as client:
+        # Optimize for faster responses
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(15.0, connect=5.0),  # Faster timeout
+            limits=httpx.Limits(max_connections=10, max_keepalive_connections=5)
+        ) as client:
             response = await client.post(
                 "https://api.deepseek.com/v1/chat/completions",
                 headers={
@@ -105,10 +118,13 @@ Provide helpful, accurate, and friendly information about Star College. Be conve
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": message}
                     ],
-                    "max_tokens": 800,
-                    "temperature": 0.7
+                    "max_tokens": 400,  # Reduced for faster responses
+                    "temperature": 0.5,  # Lower temperature for faster, more focused responses
+                    "top_p": 0.9,  # Add top_p for better performance
+                    "frequency_penalty": 0.1,  # Slight penalty to avoid repetition
+                    "stream": False  # Ensure no streaming for consistent timing
                 },
-                timeout=30.0
+                timeout=15.0  # Faster timeout
             )
 
             print(f"DeepSeek API response status: {response.status_code}")  # Debug log
@@ -117,8 +133,8 @@ Provide helpful, accurate, and friendly information about Star College. Be conve
                 data = response.json()
                 ai_response = data["choices"][0]["message"]["content"]
 
-                # Return response in the format expected by the frontend (data.answer, data.sources)
-                return {
+                # Create response object
+                response_obj = {
                     "answer": ai_response,  # Your frontend expects 'answer', not 'response'
                     "response": ai_response,  # Keep both for compatibility
                     "sources": [
@@ -135,9 +151,20 @@ Provide helpful, accurate, and friendly information about Star College. Be conve
                     "metadata": {
                         "model_used": "deepseek-chat",
                         "tokens_used": data.get("usage", {}).get("total_tokens", 0),
-                        "school_context": selected_school or "All Schools"
+                        "school_context": selected_school or "All Schools",
+                        "cached": False
                     }
                 }
+
+                # Cache the response for faster future responses
+                response_cache[cache_key] = (response_obj, current_time)
+
+                # Clean old cache entries (keep cache size manageable)
+                if len(response_cache) > 100:
+                    oldest_key = min(response_cache.keys(), key=lambda k: response_cache[k][1])
+                    del response_cache[oldest_key]
+
+                return response_obj
             else:
                 error_text = response.text if hasattr(response, 'text') else "Unknown error"
                 print(f"DeepSeek API error: {error_text}")  # Debug log
@@ -182,7 +209,18 @@ async def health_check():
     return {
         "status": "healthy",
         "message": "Star College Chatbot API is running on Vercel",
-        "deepseek_configured": bool(DEEPSEEK_API_KEY)
+        "deepseek_configured": bool(DEEPSEEK_API_KEY),
+        "cache_size": len(response_cache),
+        "timestamp": time.time()
+    }
+
+@app.get("/warmup")
+async def warmup():
+    """Endpoint to keep the serverless function warm"""
+    return {
+        "status": "warm",
+        "message": "Function is ready",
+        "timestamp": time.time()
     }
 
 # This is required for Vercel
