@@ -61,10 +61,29 @@ async def chat(request: Request):
         message = body.get("message", "")
         selected_school = body.get("selectedSchool", "")
 
+        print(f"Received message: {message}")  # Debug log
+        print(f"Selected school: {selected_school}")  # Debug log
+
+        if not message.strip():
+            return {
+                "response": "Please enter a message to get started!",
+                "sources": [],
+                "metadata": {}
+            }
+
         # Create system prompt based on selected school
-        system_prompt = "You are a helpful assistant for Star College in Durban, South Africa. Provide helpful and accurate information about the college."
-        if selected_school:
-            system_prompt += f" The user is specifically asking about {selected_school}."
+        system_prompt = """You are a helpful assistant for Star College in Durban, South Africa.
+
+Star College is a prestigious educational institution with multiple schools:
+- Star College Durban Boys High School
+- Star College Durban Girls High School
+- Star College Durban Primary School
+- Little Dolphin Star Pre-Primary School
+
+Provide helpful, accurate, and friendly information about Star College. Be conversational and informative."""
+
+        if selected_school and selected_school != "All Star College Schools":
+            system_prompt += f"\n\nThe user is specifically asking about {selected_school}. Focus your response on this particular school when relevant."
 
         async with httpx.AsyncClient() as client:
             response = await client.post(
@@ -85,6 +104,8 @@ async def chat(request: Request):
                 timeout=30.0
             )
 
+            print(f"DeepSeek API response status: {response.status_code}")  # Debug log
+
             if response.status_code == 200:
                 data = response.json()
                 ai_response = data["choices"][0]["message"]["content"]
@@ -94,29 +115,34 @@ async def chat(request: Request):
                     "response": ai_response,
                     "sources": [
                         {
-                            "content": "Response generated using DeepSeek AI",
+                            "content": "Response generated using DeepSeek AI with Star College knowledge",
                             "metadata": {
                                 "source_type": "ai",
                                 "model": "deepseek-chat",
-                                "title": "AI Generated Response"
+                                "title": "AI Generated Response",
+                                "url": "https://api.deepseek.com"
                             }
                         }
                     ],
                     "metadata": {
                         "model_used": "deepseek-chat",
-                        "tokens_used": data.get("usage", {}).get("total_tokens", 0)
+                        "tokens_used": data.get("usage", {}).get("total_tokens", 0),
+                        "school_context": selected_school or "All Schools"
                     }
                 }
             else:
+                error_text = response.text if hasattr(response, 'text') else "Unknown error"
+                print(f"DeepSeek API error: {error_text}")  # Debug log
                 return {
-                    "response": f"Sorry, I'm having trouble connecting to the AI service. (Error: {response.status_code})",
+                    "response": f"I'm having trouble connecting to the AI service right now. Please try again in a moment. (Error: {response.status_code})",
                     "sources": [],
                     "metadata": {"error": f"API Error {response.status_code}"}
                 }
 
     except Exception as e:
+        print(f"Chat endpoint error: {str(e)}")  # Debug log
         return {
-            "response": f"Sorry, I encountered an error: {str(e)}",
+            "response": f"I encountered an error while processing your request. Please try again. Error: {str(e)}",
             "sources": [],
             "metadata": {"error": str(e)}
         }
