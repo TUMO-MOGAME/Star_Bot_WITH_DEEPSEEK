@@ -49,8 +49,10 @@ async def root():
 async def chat(request: Request):
     """Chat endpoint that matches the frontend's expectations"""
     if not DEEPSEEK_API_KEY:
+        error_message = "Sorry, the AI service is not configured. Please contact the administrator."
         return {
-            "response": "Sorry, the AI service is not configured. Please contact the administrator.",
+            "answer": error_message,
+            "response": error_message,
             "sources": [],
             "metadata": {}
         }
@@ -58,15 +60,20 @@ async def chat(request: Request):
     try:
         # Parse the JSON request body
         body = await request.json()
-        message = body.get("message", "")
-        selected_school = body.get("selectedSchool", "")
+        # Your frontend sends 'question' and 'school', not 'message' and 'selectedSchool'
+        message = body.get("question", "") or body.get("message", "")
+        selected_school = body.get("school", "") or body.get("selectedSchool", "")
+        chat_history = body.get("history", [])
 
-        print(f"Received message: {message}")  # Debug log
+        print(f"Received question: {message}")  # Debug log
         print(f"Selected school: {selected_school}")  # Debug log
+        print(f"Chat history length: {len(chat_history)}")  # Debug log
 
         if not message.strip():
+            empty_message = "Please enter a message to get started!"
             return {
-                "response": "Please enter a message to get started!",
+                "answer": empty_message,
+                "response": empty_message,
                 "sources": [],
                 "metadata": {}
             }
@@ -110,9 +117,10 @@ Provide helpful, accurate, and friendly information about Star College. Be conve
                 data = response.json()
                 ai_response = data["choices"][0]["message"]["content"]
 
-                # Return response in the format expected by the frontend
+                # Return response in the format expected by the frontend (data.answer, data.sources)
                 return {
-                    "response": ai_response,
+                    "answer": ai_response,  # Your frontend expects 'answer', not 'response'
+                    "response": ai_response,  # Keep both for compatibility
                     "sources": [
                         {
                             "content": "Response generated using DeepSeek AI with Star College knowledge",
@@ -133,16 +141,20 @@ Provide helpful, accurate, and friendly information about Star College. Be conve
             else:
                 error_text = response.text if hasattr(response, 'text') else "Unknown error"
                 print(f"DeepSeek API error: {error_text}")  # Debug log
+                error_message = f"I'm having trouble connecting to the AI service right now. Please try again in a moment. (Error: {response.status_code})"
                 return {
-                    "response": f"I'm having trouble connecting to the AI service right now. Please try again in a moment. (Error: {response.status_code})",
+                    "answer": error_message,
+                    "response": error_message,
                     "sources": [],
                     "metadata": {"error": f"API Error {response.status_code}"}
                 }
 
     except Exception as e:
         print(f"Chat endpoint error: {str(e)}")  # Debug log
+        error_message = f"I encountered an error while processing your request. Please try again. Error: {str(e)}"
         return {
-            "response": f"I encountered an error while processing your request. Please try again. Error: {str(e)}",
+            "answer": error_message,
+            "response": error_message,
             "sources": [],
             "metadata": {"error": str(e)}
         }
@@ -152,10 +164,17 @@ async def feedback(request: Request):
     """Feedback endpoint for user ratings"""
     try:
         body = await request.json()
-        # For now, just log the feedback (in production, you'd save to database)
-        print(f"Feedback received: {body}")
+        question = body.get("question", "")
+        answer = body.get("answer", "")
+        feedback_type = body.get("feedback", "")
+        sources = body.get("sources", [])
+
+        # Log the feedback (in production, you'd save to database)
+        print(f"Feedback received - Question: {question[:50]}..., Feedback: {feedback_type}")
+
         return {"status": "success", "message": "Thank you for your feedback!"}
     except Exception as e:
+        print(f"Feedback error: {str(e)}")
         return {"status": "error", "message": f"Error processing feedback: {str(e)}"}
 
 @app.get("/health")
