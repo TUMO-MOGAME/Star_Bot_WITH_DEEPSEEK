@@ -50,13 +50,33 @@ def load_processed_data():
     all_data = []
     for file_path in data_files:
         try:
+            print(f"Checking file: {file_path}, exists: {os.path.exists(file_path)}")
             if os.path.exists(file_path):
                 with open(file_path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
-                    all_data.extend(data)
-                    print(f"Loaded {len(data)} items from {file_path}")
+                    if isinstance(data, list):
+                        all_data.extend(data)
+                        print(f"Loaded {len(data)} items from {file_path}")
+                    else:
+                        print(f"Warning: {file_path} does not contain a list")
+            else:
+                print(f"File not found: {file_path}")
         except Exception as e:
             print(f"Error loading {file_path}: {e}")
+
+    # Add fallback data if no files are loaded
+    if not all_data:
+        print("No processed data files found, using fallback data")
+        all_data = [
+            {
+                "text": "Star College Durban is a private, independent school located in Westville North, Durban, South Africa. The school offers comprehensive education from Grade RR to Grade 12.",
+                "metadata": {"source_type": "fallback", "section": "basic_info"}
+            },
+            {
+                "text": "Star College maintains a 100% matric pass rate and is known for excellence in Mathematics, Science, and Computer Technology.",
+                "metadata": {"source_type": "fallback", "section": "academics"}
+            }
+        ]
 
     processed_data = all_data
     print(f"Total processed data loaded: {len(processed_data)} items")
@@ -133,6 +153,14 @@ async def chat(request: Request):
         print(f"Selected school: {selected_school}")  # Debug log
         print(f"Chat history length: {len(chat_history)}")  # Debug log
 
+        # Try to load processed data
+        try:
+            load_processed_data()
+            print(f"Processed data loaded: {len(processed_data)} items")
+        except Exception as data_error:
+            print(f"Error loading processed data: {data_error}")
+            # Continue without processed data
+
         if not message.strip():
             empty_message = "Please enter a message to get started!"
             return {
@@ -171,8 +199,12 @@ async def chat(request: Request):
                 }
 
         # Search processed data for relevant information
-        relevant_data = search_processed_data(message, max_results=3)
-        print(f"Found {len(relevant_data)} relevant data chunks")
+        try:
+            relevant_data = search_processed_data(message, max_results=3)
+            print(f"Found {len(relevant_data)} relevant data chunks")
+        except Exception as search_error:
+            print(f"Error searching processed data: {search_error}")
+            relevant_data = []  # Continue without processed data
 
         # Check cache for faster responses
         cache_key = hashlib.md5(f"{message.lower().strip()}_{selected_school}".encode()).hexdigest()
@@ -386,6 +418,32 @@ async def warmup():
         "message": "Function is ready",
         "timestamp": time.time()
     }
+
+@app.get("/test-data")
+async def test_data():
+    """Test endpoint to check processed data loading"""
+    try:
+        load_processed_data()
+        return {
+            "status": "success",
+            "data_loaded": len(processed_data),
+            "sample_data": processed_data[:2] if processed_data else [],
+            "files_checked": [
+                {"file": "processed/sample_data.json", "exists": os.path.exists("processed/sample_data.json")},
+                {"file": "processed/uploads_data.json", "exists": os.path.exists("processed/uploads_data.json")},
+                {"file": "processed/web_data.json", "exists": os.path.exists("processed/web_data.json")}
+            ]
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "files_checked": [
+                {"file": "processed/sample_data.json", "exists": os.path.exists("processed/sample_data.json")},
+                {"file": "processed/uploads_data.json", "exists": os.path.exists("processed/uploads_data.json")},
+                {"file": "processed/web_data.json", "exists": os.path.exists("processed/web_data.json")}
+            ]
+        }
 
 # Initialize processed data on startup
 @app.on_event("startup")
