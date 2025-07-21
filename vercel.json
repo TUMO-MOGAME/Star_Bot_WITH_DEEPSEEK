@@ -2,39 +2,14 @@
   "version": 2,
   "builds": [
     {
-      "src": "app/main.py",
+      "src": "main.py",
       "use": "@vercel/python"
     }
   ],
   "routes": [
     {
-      "src": "/static/(.*)",
-      "dest": "/static/$1"
-    },
-    {
-      "src": "/images/(.*)",
-      "dest": "/images/$1"
-    },
-    {
       "src": "/(.*)",
-      "dest": "app/main.py"
+      "dest": "/main.py"
     }
-  ],
-  "env": {
-    "DEEPSEEK_API_KEY": "@deepseek_api_key",
-    "EMBEDDING_MODEL": "BAAI/bge-small-en-v1.5",
-    "LLM_MODEL": "deepseek-ai/deepseek-coder-7b-instruct",
-    "VECTOR_STORE_TYPE": "chroma",
-    "TOP_K_RESULTS": "5",
-    "CHUNK_SIZE": "512",
-    "CHUNK_OVERLAP": "50",
-    "DEBUG": "False",
-    "HOST": "0.0.0.0",
-    "PORT": "8000"
-  },
-  "functions": {
-    "app/main.py": {
-      "maxDuration": 30
-    }
-  }
+  ]
 }
