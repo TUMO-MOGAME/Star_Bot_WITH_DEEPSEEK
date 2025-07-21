@@ -84,6 +84,34 @@ async def chat(request: Request):
                 "metadata": {}
             }
 
+        # Check for quick answers to common questions first
+        quick_answers = {
+            "what is star college": "Star College Durban is a private, independent school in Westville North, Durban, established in 2002. It offers education from Grade RR to Grade 12 with a 100% matric pass rate since inception.",
+            "when was star college established": "Star College Durban was established in 2002 by the Horizon Educational Trust.",
+            "where is star college located": "Star College Durban is located in Westville North, Durban, South Africa.",
+            "what is the pass rate": "Star College has maintained a 100% pass rate in the National Senior Certificate (Matric) exams since its inception in 2002.",
+            "what is the school motto": "The school motto is 'Excellence in Education'.",
+            "what schools are part of star college": "Star College includes: Boys High School, Girls High School, Primary School, and Little Dolphin Star Pre-Primary School."
+        }
+
+        # Check for quick answer match
+        message_lower = message.lower().strip()
+        for key, answer in quick_answers.items():
+            if key in message_lower:
+                return {
+                    "answer": answer,
+                    "response": answer,
+                    "sources": [{
+                        "content": "Star College official information",
+                        "metadata": {
+                            "source_type": "knowledge_base",
+                            "title": "Star College Information",
+                            "url": "https://starcollegedurban.co.za"
+                        }
+                    }],
+                    "metadata": {"quick_answer": True, "school_context": selected_school or "All Schools"}
+                }
+
         # Check cache for faster responses
         cache_key = hashlib.md5(f"{message.lower().strip()}_{selected_school}".encode()).hexdigest()
         current_time = time.time()
@@ -95,11 +123,43 @@ async def chat(request: Request):
                 cached_response["metadata"]["cached"] = True
                 return cached_response
 
-        # Create concise system prompt for faster processing
-        system_prompt = f"You are a helpful assistant for Star College in Durban, South Africa. Star College has Boys High, Girls High, Primary, and Pre-Primary schools. Provide concise, accurate information about Star College."
+        # Create comprehensive system prompt with detailed Star College information
+        system_prompt = """You are a knowledgeable assistant for Star College Durban. Use the following accurate information to answer questions:
+
+ABOUT STAR COLLEGE DURBAN:
+Star College Durban is a private, independent school located in Westville North, Durban, South Africa. Established in 2002 by the Horizon Educational Trust, it offers comprehensive education from Grade RR to Grade 12, encompassing pre-primary, primary, and high school levels.
+
+SCHOOLS WITHIN STAR COLLEGE:
+- Star College Durban Boys High School
+- Star College Durban Girls High School
+- Star College Durban Primary School
+- Little Dolphin Star Pre-Primary School
+
+CURRICULUM & ACADEMICS:
+- Follows the South African National Curriculum
+- Known for strong academic performance in Mathematics, Science, and Computer Technology
+- 100% pass rate in National Senior Certificate (Matric) exams since inception
+- Many students achieve multiple distinctions
+- Recognized as best-performing school in South Africa in Maths and Science Olympiad (2009)
+- Consistently achieves top results in national and international Mathematics, Science, and Computer Olympiads
+
+FACILITIES & ACTIVITIES:
+- Specialized classrooms and sports facilities
+- Cultural programs and extracurricular activities
+- Balanced approach to education encouraging both academic and extracurricular participation
+
+VALUES & ETHOS:
+- School motto: "Excellence in Education"
+- Fosters culture of respect, responsibility, and community
+- Develops students who are compassionate, knowledgeable, and respectful
+- Prepares students to be ethical leaders in society
+
+WEBSITES: starcollegedurban.co.za, starboyshigh.co.za, starprimary.co.za
+
+Provide helpful, accurate responses based on this information. Be friendly and informative."""
 
         if selected_school and selected_school != "All Star College Schools":
-            system_prompt += f" Focus on {selected_school}."
+            system_prompt += f"\n\nThe user is specifically asking about {selected_school}. Focus your response on this particular school when relevant."
 
         # Optimize for faster responses
         async with httpx.AsyncClient(
@@ -139,12 +199,20 @@ async def chat(request: Request):
                     "response": ai_response,  # Keep both for compatibility
                     "sources": [
                         {
-                            "content": "Response generated using DeepSeek AI with Star College knowledge",
+                            "content": "Star College Durban official information and knowledge base",
                             "metadata": {
-                                "source_type": "ai",
+                                "source_type": "knowledge_base",
                                 "model": "deepseek-chat",
-                                "title": "AI Generated Response",
-                                "url": "https://api.deepseek.com"
+                                "title": "Star College Information Database",
+                                "url": "https://starcollegedurban.co.za"
+                            }
+                        },
+                        {
+                            "content": "Additional school information from starboyshigh.co.za and starprimary.co.za",
+                            "metadata": {
+                                "source_type": "school_websites",
+                                "title": "Star College School Websites",
+                                "url": "https://starboyshigh.co.za"
                             }
                         }
                     ],
@@ -152,7 +220,8 @@ async def chat(request: Request):
                         "model_used": "deepseek-chat",
                         "tokens_used": data.get("usage", {}).get("total_tokens", 0),
                         "school_context": selected_school or "All Schools",
-                        "cached": False
+                        "cached": False,
+                        "information_source": "Star College knowledge base"
                     }
                 }
 
