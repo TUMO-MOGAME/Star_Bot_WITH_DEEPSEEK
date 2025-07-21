@@ -1,0 +1,46 @@
+# Development files
+.env
+*.bat
+*.ps1
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Backup and temporary files
+*_backup_*
+*.tmp
+*.temp
+
+# Data directories (these should be handled separately in production)
+data/chroma_index/
+data/uploads/
+data/processed/
+processed/
+feedback/
+
+# Test files
+test_*.py
+*_test.py
+
+# Documentation (keep README.md)
+*.md
+!README.md

@@ -369,6 +369,7 @@
             border: 1px solid var(--border-color);
             border-bottom-left-radius: 4px;
             transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease;
+            color: #2ecc71; /* Green text color for bot messages */
         }
 
         .message-info {
@@ -1492,6 +1493,28 @@
                     const schoolSelect = document.getElementById('school-select');
                     const selectedSchool = schoolSelect.value;
 
+                    // Get chat history from previous messages
+                    const chatHistory = [];
+                    const messageElements = document.querySelectorAll('.message');
+
+                    // Skip the first welcome message
+                    for (let i = 1; i < messageElements.length; i++) {
+                        const element = messageElements[i];
+                        if (element === typingIndicator) continue;
+
+                        const isUser = element.classList.contains('user');
+                        const content = isUser
+                            ? element.querySelector('.message-content p').textContent
+                            : element.querySelector('.message-content .markdown')
+                              ? element.querySelector('.message-content .markdown').textContent
+                              : element.querySelector('.message-content p').textContent;
+
+                        chatHistory.push({
+                            role: isUser ? "user" : "bot",
+                            content: content
+                        });
+                    }
+
                     // Make API call
                     const response = await fetch('/chat', {
                         method: 'POST',
@@ -1501,7 +1524,7 @@
                         body: JSON.stringify({
                             question: question,
                             school: selectedSchool,
-                            history: [] // Always send history for backend compatibility
+                            history: chatHistory // Send actual chat history
                         })
                     });
 
@@ -1599,9 +1622,85 @@
                             reactionButtons.forEach(btn => btn.classList.remove('active'));
                             this.classList.add('active');
 
-                            // Here you would typically send feedback to the server
+                            // Send feedback to the server
                             const reaction = this.getAttribute('data-reaction');
                             console.log(`User rated message as: ${reaction}`);
+
+                            // Get the message content
+                            const messageContent = this.closest('.message').querySelector('.message-content').textContent.trim();
+
+                            // Get the question that was asked (from the previous user message)
+                            const messageElements = document.querySelectorAll('.message');
+                            const messageIndex = Array.from(messageElements).indexOf(this.closest('.message'));
+                            let question = "";
+
+                            // Look for the most recent user message before this bot message
+                            for (let i = messageIndex - 1; i >= 0; i--) {
+                                if (messageElements[i].classList.contains('user')) {
+                                    question = messageElements[i].querySelector('.message-content').textContent.trim();
+                                    break;
+                                }
+                            }
+
+                            // Get sources if available
+                            const sourcesContainer = this.closest('.message').querySelector('.sources-container');
+                            let sources = [];
+                            if (sourcesContainer) {
+                                // Extract source information (simplified)
+                                const sourceItems = sourcesContainer.querySelectorAll('li');
+                                sourceItems.forEach(item => {
+                                    sources.push({
+                                        text: item.textContent,
+                                        metadata: {}
+                                    });
+                                });
+                            }
+
+                            // Send feedback to server
+                            fetch('/feedback', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    question: question,
+                                    answer: messageContent,
+                                    feedback: reaction,
+                                    sources: sources
+                                })
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                console.log('Feedback sent successfully:', data);
+                                // Show a small notification
+                                const notification = document.createElement('div');
+                                notification.textContent = 'Feedback recorded';
+                                notification.style.position = 'absolute';
+                                notification.style.right = '10px';
+                                notification.style.bottom = '10px';
+                                notification.style.backgroundColor = 'rgba(46, 204, 113, 0.8)';
+                                notification.style.color = 'white';
+                                notification.style.padding = '8px 12px';
+                                notification.style.borderRadius = '4px';
+                                notification.style.fontSize = '12px';
+                                notification.style.opacity = '0';
+                                notification.style.transition = 'opacity 0.3s ease';
+                                document.body.appendChild(notification);
+
+                                // Show and then hide notification
+                                setTimeout(() => {
+                                    notification.style.opacity = '1';
+                                    setTimeout(() => {
+                                        notification.style.opacity = '0';
+                                        setTimeout(() => {
+                                            document.body.removeChild(notification);
+                                        }, 300);
+                                    }, 2000);
+                                }, 10);
+                            })
+                            .catch(error => {
+                                console.error('Error sending feedback:', error);
+                            });
                         });
                     });
                 }

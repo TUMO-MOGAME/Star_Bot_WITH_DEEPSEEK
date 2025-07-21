@@ -42,27 +42,31 @@ class LLMService:
             print(f"Error initializing Hugging Face LLM: {str(e)}")
             self.llm = None
 
-    def _call_deepseek_api(self, prompt: str) -> str:
+    def _call_deepseek_api(self, prompt: str, messages: List[Dict[str, str]] = None) -> str:
         """Call the DeepSeek API to generate a response."""
         try:
-            print(f"Calling DeepSeek API with API key: {self.deepseek_api_key[:5]}...{self.deepseek_api_key[-5:]}")
-
+            # Prepare API request
             headers = {
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {self.deepseek_api_key}"
             }
 
+            # If messages are provided, use them directly
+            # Otherwise, create a single message with the prompt
+            if not messages:
+                messages = [{"role": "user", "content": prompt}]
+
             data = {
                 "model": "deepseek-chat",
-                "messages": [
-                    {"role": "user", "content": prompt}
-                ],
-                "temperature": 0.7,
-                "max_tokens": 1000,
-                "top_p": 0.95
+                "messages": messages,
+                "temperature": 0.5,  # Lower temperature for more focused, predictable responses
+                "max_tokens": 300,   # Limit token count to encourage brevity
+                "top_p": 0.9,
+                "presence_penalty": 0.2,  # Increased penalty to reduce repetition
+                "frequency_penalty": 0.2   # Increased penalty to encourage simpler vocabulary
             }
 
-            print("Sending request to DeepSeek API...")
+            print("Generating response...")
             response = requests.post(
                 "https://api.deepseek.com/v1/chat/completions",
                 headers=headers,
@@ -70,14 +74,11 @@ class LLMService:
                 timeout=30  # Add timeout to prevent hanging
             )
 
-            print(f"DeepSeek API response status code: {response.status_code}")
-
             if response.status_code != 200:
-                print(f"Error response from DeepSeek API: {response.text}")
+                print(f"Error: API returned status code {response.status_code}")
                 return f"Error from DeepSeek API: Status code {response.status_code}. Please try again later."
 
             result = response.json()
-            print(f"DeepSeek API response: {json.dumps(result)[:200]}...")
 
             if "choices" in result and len(result["choices"]) > 0:
                 answer = result["choices"][0]["message"]["content"]
@@ -94,36 +95,78 @@ class LLMService:
             return f"Error calling DeepSeek API: {str(e)}"
 
     def generate_response(self, query: str, context: List[Dict[str, Any]], history: List[Dict[str, str]] = None) -> str:
-        """Generate a clear, concise response to the query using the provided context and conversation history."""
-        if not context:
-            return "I don't have enough information to answer that question about Star College. Please try asking something else or upload more information about the school."
+        """Generate a dynamic, thoughtful response to the query using the provided context and conversation history."""
+        # Always proceed with the available context, even if it's empty
+        # This ensures we use the processed data
 
         # Format context for the prompt
         formatted_context = self._format_context(context)
 
-        # Format conversation history
-        formatted_history = ""
+        # Prepare messages for the chat API
+        messages = []
+
+        # System message with instructions
+        system_message = {
+            "role": "system",
+            "content": """You are a concise and helpful assistant for Star College in Durban, South Africa.
+Your purpose is to provide short, precise, and straightforward responses to questions about the school.
+
+IMPORTANT GUIDELINES:
+1. NEVER say you don't have information unless the context is completely unrelated to education or schools.
+2. Base your answers primarily on the provided context information.
+3. When the context doesn't contain exact information, provide a helpful response based on related information.
+4. For specific queries (like "2020 results"), if you don't have exact data, provide the closest available information and clearly state what year it's from.
+5. If asked about results or achievements, mention any performance data you can find in the context.
+6. Keep all responses SHORT and TO THE POINT - typically 1-3 sentences.
+7. Use simple, clear language without academic or flowery phrasing.
+8. Answer directly what was asked without adding tangential information.
+
+Remember: Your goal is to be helpful by providing the most relevant information available, even if it's not a perfect match for the query."""
+        }
+        messages.append(system_message)
+
+        # Add conversation history if available
         if history:
-            for turn in history:
+            # Only include the last few turns to keep context manageable
+            recent_history = history[-6:] if len(history) > 6 else history
+            for turn in recent_history:
                 role = turn.get("role", "user")
                 content = turn.get("content", "")
-                if role == "user":
-                    formatted_history += f"User: {content}\n"
-                else:
-                    formatted_history += f"Bot: {content}\n"
+                # Map 'bot' role to 'assistant' for the API
+                api_role = "assistant" if role == "bot" else role
+                messages.append({"role": api_role, "content": content})
 
-        # New concise prompt
-        prompt = f"""You are a helpful assistant for Star College in Durban. Answer the user's question based ONLY on the provided context.\nIf you don't know the answer based on the context, say \"I don't have enough information to answer that question about Star College.\"\nDo not make up information or use knowledge outside of the provided context.\n\nBe concise and clear. Only provide the most relevant information in your answer. Do not include everything from the context unless the user specifically asks for more details. Avoid long answers unless absolutely necessary.\n\nConversation history:\n{formatted_history}\nContext:\n{formatted_context}\n\nQuestion: {query}\n\nShort, clear answer:"""
+        # Add the context and current query as the final user message
+        user_message = f"""Question: {query}
+
+Here is the relevant information about Star College to help you answer:
+
+{formatted_context}
+
+IMPORTANT: Even if the information doesn't perfectly match the question, provide a helpful response using what's available. For example, if asked about "2020 results" but you only have data from 2019 or 2021, provide that information and specify the year.
+
+Please provide a short, direct answer (1-3 sentences) based on this information. Be extremely concise but informative."""
+
+        messages.append({"role": "user", "content": user_message})
 
         try:
             if self.deepseek_api_key:
-                return self._call_deepseek_api(prompt)
+                # Pass the full messages array to the API
+                return self._call_deepseek_api("", messages=messages)
             elif self.llm:
-                response = self.llm.invoke(prompt)
+                # For HuggingFace, we need to format as a single prompt
+                formatted_messages = ""
+                for msg in messages:
+                    role = msg["role"].capitalize()
+                    content = msg["content"]
+                    formatted_messages += f"{role}: {content}\n\n"
+
+                response = self.llm.invoke(formatted_messages)
                 return response
             else:
+                # Fallback if no LLM is available
                 response = "Based on the information I have about Star College:\n\n"
-                for item in context[:1]:  # Only the most relevant
+                for item in context[:3]:  # Include more context
                     text = item.get("text", "").strip()
                     if text:
                         response += f"- {text}\n\n"

@@ -1,6 +1,11 @@
 from typing import List, Dict, Any
 
-from langchain_huggingface import HuggingFaceEmbeddings  # Updated import as per deprecation warning
+try:
+    # Try the new import path first
+    from langchain_huggingface import HuggingFaceEmbeddings
+except ImportError:
+    # Fall back to the old import path
+    from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_core.documents import Document
 
 from app.config import EMBEDDING_MODEL
