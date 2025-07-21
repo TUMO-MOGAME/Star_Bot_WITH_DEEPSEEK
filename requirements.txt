@@ -1,26 +1,32 @@
 # Core FastAPI and web framework
-fastapi
-uvicorn
-python-multipart
-python-dotenv
-pydantic
-jinja2
+fastapi==0.104.1
+uvicorn[standard]==0.23.2
+python-multipart==0.0.6
+python-dotenv==1.0.0
+pydantic==2.4.2
+jinja2==3.1.2
 
-# LangChain core packages
-langchain
-langchain-community
-langchain-core
+# LangChain core packages (optimized for deployment)
+langchain>=0.0.310
+langchain-community>=0.0.13
+langchain-core>=0.1.9
 langchain-huggingface
 
-# Essential file processing
-pymupdf
-requests
-beautifulsoup4
+# Essential file processing (reduced set)
+pymupdf==1.23.4
+requests==2.31.0
+beautifulsoup4==4.12.2
 
 # Embedding and vector store
-sentence-transformers
-chromadb
+sentence-transformers==2.2.2
+chromadb==0.4.18
 
-# Essential ML packages
-huggingface-hub
-transformers
+# Essential ML packages (optimized versions)
+huggingface-hub==0.17.3
+transformers>=4.41.2
+
+# Note: Removed heavy dependencies for Vercel deployment:
+# - torch (too large for serverless)
+# - pytesseract, pdf2image (require system dependencies)
+# - unstructured (heavy dependency)
+# - colorama (not needed for web deployment)
