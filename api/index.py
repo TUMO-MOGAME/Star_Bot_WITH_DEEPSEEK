@@ -82,30 +82,70 @@ def load_processed_data():
     print(f"Total processed data loaded: {len(processed_data)} items")
     return processed_data
 
-def search_processed_data(query: str, max_results: int = 5) -> List[Dict]:
-    """Search through processed data for relevant information"""
+def calculate_similarity_score(query: str, text: str) -> float:
+    """Calculate similarity score between query and text using keyword matching and context"""
+    query_lower = query.lower()
+    text_lower = text.lower()
+
+    # Split into words and remove common stop words
+    stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should'}
+
+    query_words = [word for word in query_lower.split() if word not in stop_words and len(word) > 2]
+    text_words = text_lower.split()
+
+    if not query_words:
+        return 0.0
+
+    # Calculate different types of matches
+    exact_matches = sum(1 for word in query_words if word in text_lower)
+    partial_matches = sum(1 for word in query_words if any(word in text_word for text_word in text_words))
+
+    # Bonus for phrase matches
+    phrase_bonus = 0
+    for i in range(len(query_words) - 1):
+        phrase = f"{query_words[i]} {query_words[i+1]}"
+        if phrase in text_lower:
+            phrase_bonus += 2
+
+    # Calculate final score
+    score = (exact_matches * 2 + partial_matches + phrase_bonus) / len(query_words)
+    return score
+
+def retrieve_relevant_chunks(query: str, max_results: int = 5, min_score: float = 0.1) -> List[Dict]:
+    """RAG Retrieval: Search and retrieve most relevant chunks from processed data"""
     if not processed_data:
         load_processed_data()
 
     query_lower = query.lower()
     results = []
 
-    # Search for relevant chunks
-    for item in processed_data:
-        text = item.get('text', '').lower()
+    print(f"RAG Retrieval: Searching through {len(processed_data)} documents for: '{query}'")
 
-        # Simple keyword matching (can be improved with better search algorithms)
-        if any(keyword in text for keyword in query_lower.split()):
-            score = sum(1 for keyword in query_lower.split() if keyword in text)
+    # Calculate relevance scores for all chunks
+    for item in processed_data:
+        text = item.get('text', '')
+        if not text:
+            continue
+
+        # Calculate similarity score
+        score = calculate_similarity_score(query, text)
+
+        if score >= min_score:
             results.append({
-                'text': item.get('text', ''),
+                'text': text,
                 'metadata': item.get('metadata', {}),
-                'score': score
+                'relevance_score': score,
+                'chunk_length': len(text)
             })
 
-    # Sort by relevance score and return top results
-    results.sort(key=lambda x: x['score'], reverse=True)
-    return results[:max_results]
+    # Sort by relevance score (descending)
+    results.sort(key=lambda x: x['relevance_score'], reverse=True)
+
+    # Return top results
+    top_results = results[:max_results]
+    print(f"RAG Retrieval: Found {len(top_results)} relevant chunks with scores: {[r['relevance_score'] for r in top_results]}")
+
+    return top_results
 
 # Main page route - serve the existing index.html
 @app.get("/", response_class=HTMLResponse)
@@ -198,13 +238,19 @@ async def chat(request: Request):
                     "metadata": {"quick_answer": True, "school_context": selected_school or "All Schools"}
                 }
 
-        # Search processed data for relevant information
+        # RAG STEP 1: RETRIEVAL - Find relevant chunks from processed data
         try:
-            relevant_data = search_processed_data(message, max_results=3)
-            print(f"Found {len(relevant_data)} relevant data chunks")
+            print(f"RAG System: Starting retrieval for query: '{message}'")
+            relevant_chunks = retrieve_relevant_chunks(message, max_results=5, min_score=0.1)
+            print(f"RAG Retrieval: Found {len(relevant_chunks)} relevant chunks")
+
+            if not relevant_chunks:
+                print("RAG Retrieval: No relevant chunks found, trying with lower threshold")
+                relevant_chunks = retrieve_relevant_chunks(message, max_results=3, min_score=0.05)
+
         except Exception as search_error:
-            print(f"Error searching processed data: {search_error}")
-            relevant_data = []  # Continue without processed data
+            print(f"RAG Retrieval Error: {search_error}")
+            relevant_chunks = []
 
         # Check cache for faster responses
         cache_key = hashlib.md5(f"{message.lower().strip()}_{selected_school}".encode()).hexdigest()
@@ -217,68 +263,114 @@ async def chat(request: Request):
                 cached_response["metadata"]["cached"] = True
                 return cached_response
 
-        # Check if we have relevant data from processed files
-        if not relevant_data:
-            # If no relevant data found, return a helpful message
-            no_data_message = "I don't have specific information about that topic in my Star College database. Please ask about topics like academic performance, school facilities, matric results, or general school information."
+        # RAG STEP 2: CHECK RETRIEVAL RESULTS
+        if not relevant_chunks:
+            print("RAG System: No relevant information found in knowledge base")
+            no_data_message = """I don't have specific information about that topic in my Star College knowledge base.
+
+I can help you with information about:
+• Academic performance and matric results
+• School facilities and programs
+• Contact information and location
+• Extracurricular activities
+• School history and achievements
+
+Please try asking about one of these topics."""
+
             return {
                 "answer": no_data_message,
                 "response": no_data_message,
                 "sources": [{
-                    "content": "Star College information database",
+                    "content": "Star College RAG Knowledge Base",
                     "metadata": {
-                        "source_type": "system",
-                        "title": "Star College Database",
+                        "source_type": "rag_system",
+                        "title": "Star College RAG Database",
                         "url": "https://starcollegedurban.co.za"
                     }
                 }],
-                "metadata": {"no_relevant_data": True, "school_context": selected_school or "All Schools"}
+                "metadata": {
+                    "rag_system": True,
+                    "retrieval_results": 0,
+                    "school_context": selected_school or "All Schools"
+                }
             }
 
-        # Create system prompt using ONLY processed data
-        system_prompt = f"""You are a helpful assistant for Star College Durban. Answer the user's question using ONLY the following specific information from Star College's official records and documents. Do not use any external knowledge.
+        # RAG STEP 3: AUGMENTATION - Create enhanced prompt with retrieved information
+        print(f"RAG Augmentation: Creating prompt with {len(relevant_chunks)} retrieved chunks")
 
-IMPORTANT: Base your response ONLY on the information provided below. If the provided information doesn't fully answer the question, say so and suggest what topics you do have information about.
+        # Build the context from retrieved chunks
+        context_sections = []
+        total_context_length = 0
+        max_context_length = 3000  # Limit context to avoid token limits
 
-RELEVANT STAR COLLEGE INFORMATION:
-"""
+        for i, chunk in enumerate(relevant_chunks, 1):
+            chunk_text = chunk['text']
+            chunk_score = chunk['relevance_score']
+            metadata = chunk['metadata']
 
-        # Add all relevant processed data to the prompt
-        for i, data in enumerate(relevant_data, 1):
-            text = data['text'][:800]  # Allow more text for better context
-            source = data['metadata'].get('source_type', 'school_data')
-            filename = data['metadata'].get('filename', '')
-            url = data['metadata'].get('url', '')
+            # Add source information
+            source_type = metadata.get('source_type', 'document')
+            filename = metadata.get('filename', '')
+            url = metadata.get('url', '')
+            section = metadata.get('section', '')
 
-            source_info = f"Source: {source}"
+            source_info = f"Source: {source_type}"
             if filename:
-                source_info += f" ({filename})"
+                source_info += f" - {filename}"
+            if section:
+                source_info += f" ({section})"
             if url:
-                source_info += f" - {url}"
+                source_info += f" | {url}"
 
-            system_prompt += f"\n{i}. {text}\n   [{source_info}]\n"
+            # Limit chunk size to prevent token overflow
+            if total_context_length + len(chunk_text) > max_context_length:
+                chunk_text = chunk_text[:max_context_length - total_context_length] + "..."
 
-        system_prompt += f"""
+            context_section = f"""
+CONTEXT {i} (Relevance: {chunk_score:.2f}):
+{chunk_text}
+[{source_info}]
+"""
+            context_sections.append(context_section)
+            total_context_length += len(chunk_text)
+
+            if total_context_length >= max_context_length:
+                break
+
+        # RAG STEP 4: Create the augmented prompt
+        rag_prompt = f"""You are a RAG-powered assistant for Star College Durban. You must answer the user's question using ONLY the retrieved context provided below. This is a Retrieval-Augmented Generation (RAG) system.
+
+CRITICAL INSTRUCTIONS:
+1. Use ONLY the information in the CONTEXT sections below
+2. Do NOT use any external knowledge or training data
+3. If the context doesn't contain enough information, clearly state this
+4. Cite specific context sections when possible
+5. Be accurate and helpful based solely on the retrieved information
+
+RETRIEVED CONTEXT FROM STAR COLLEGE DATABASE:
+{''.join(context_sections)}
 
 USER QUESTION: {message}
 
-INSTRUCTIONS:
-- Answer based ONLY on the information provided above
-- Be specific and cite the relevant information
-- If you need to mention something not in the provided information, clearly state that it's not in your current database
-- Be helpful and friendly
-- Focus on Star College Durban specifically"""
+RESPONSE GUIDELINES:
+- Answer based exclusively on the context above
+- Reference specific context sections when relevant (e.g., "According to Context 1...")
+- If information is incomplete, acknowledge this and suggest related topics from the context
+- Maintain a helpful and professional tone
+- Focus specifically on Star College Durban"""
 
         if selected_school and selected_school != "All Star College Schools":
-            system_prompt += f"\n- The user is asking specifically about {selected_school}, focus on that school if relevant information is available"
+            rag_prompt += f"\n- The user is asking about {selected_school} specifically - focus on this school if mentioned in the context"
 
-        # Call DeepSeek API with processed data only
+        print(f"RAG Augmentation: Created prompt with {len(context_sections)} context sections, total length: {total_context_length} chars")
+
+        # RAG STEP 5: GENERATION - Use DeepSeek LLM with augmented prompt
         try:
-            async with httpx.AsyncClient(
-                timeout=httpx.Timeout(20.0, connect=10.0)
-            ) as client:
+            print("RAG Generation: Calling DeepSeek LLM with augmented prompt")
 
-                print(f"Calling DeepSeek API with {len(relevant_data)} data sources")
+            async with httpx.AsyncClient(
+                timeout=httpx.Timeout(25.0, connect=10.0)
+            ) as client:
 
                 response = await client.post(
                     "https://api.deepseek.com/v1/chat/completions",
@@ -289,11 +381,13 @@ INSTRUCTIONS:
                     json={
                         "model": "deepseek-chat",
                         "messages": [
-                            {"role": "system", "content": system_prompt}
+                            {"role": "system", "content": rag_prompt}
                         ],
-                        "max_tokens": 600,
-                        "temperature": 0.3,  # Lower temperature for more focused responses
+                        "max_tokens": 800,  # Allow longer responses for detailed RAG answers
+                        "temperature": 0.2,  # Low temperature for factual, consistent responses
                         "top_p": 0.9,
+                        "frequency_penalty": 0.1,  # Reduce repetition
+                        "presence_penalty": 0.1,   # Encourage diverse vocabulary
                         "stream": False
                     }
                 )
@@ -331,36 +425,48 @@ INSTRUCTIONS:
                 "metadata": {"error": str(api_error)}
             }
 
-        # Process successful response
+        # RAG STEP 6: PROCESS GENERATED RESPONSE
         try:
             data = response.json()
             ai_response = data["choices"][0]["message"]["content"]
-            print(f"AI response generated successfully, length: {len(ai_response)}")
+            tokens_used = data.get("usage", {}).get("total_tokens", 0)
+
+            print(f"RAG Generation: Response generated successfully")
+            print(f"RAG Generation: Response length: {len(ai_response)} chars, Tokens used: {tokens_used}")
+
         except Exception as parse_error:
-            print(f"Error parsing DeepSeek response: {parse_error}")
-            error_message = "Error processing AI response. Please try again."
+            print(f"RAG Generation Error: Failed to parse DeepSeek response: {parse_error}")
+            error_message = "Error processing RAG response. Please try again."
             return {
                 "answer": error_message,
                 "response": error_message,
                 "sources": [],
-                "metadata": {"error": "response_parsing_error"}
+                "metadata": {"error": "rag_response_parsing_error"}
             }
 
-        # Create sources from the processed data that was actually used
+        # RAG STEP 7: CREATE SOURCES FROM RETRIEVED CHUNKS
         sources = []
 
-        for data_item in relevant_data:
-            metadata = data_item.get('metadata', {})
-            source_type = metadata.get('source_type', 'school_data')
+        print(f"RAG Sources: Creating sources from {len(relevant_chunks)} retrieved chunks")
+
+        for i, chunk in enumerate(relevant_chunks):
+            metadata = chunk.get('metadata', {})
+            source_type = metadata.get('source_type', 'document')
+            relevance_score = chunk.get('relevance_score', 0.0)
+
+            # Create source content preview
+            content_preview = chunk['text'][:400] + "..." if len(chunk['text']) > 400 else chunk['text']
 
             if source_type == 'file':
                 filename = metadata.get('filename', 'school_document')
                 sources.append({
-                    "content": data_item['text'][:300] + "..." if len(data_item['text']) > 300 else data_item['text'],
+                    "content": content_preview,
                     "metadata": {
-                        "source_type": "school_document",
+                        "source_type": "rag_document",
                         "title": f"Star College Document: {filename}",
                         "filename": filename,
+                        "relevance_score": relevance_score,
+                        "chunk_index": i + 1,
                         "url": "https://starcollegedurban.co.za"
                     }
                 })
@@ -368,40 +474,66 @@ INSTRUCTIONS:
                 url = metadata.get('url', 'https://starcollegedurban.co.za')
                 title = metadata.get('title', 'Star College Web Content')
                 sources.append({
-                    "content": data_item['text'][:300] + "..." if len(data_item['text']) > 300 else data_item['text'],
+                    "content": content_preview,
                     "metadata": {
-                        "source_type": "web_content",
+                        "source_type": "rag_web_content",
                         "title": f"Star College Web: {title}",
+                        "relevance_score": relevance_score,
+                        "chunk_index": i + 1,
                         "url": url
                     }
                 })
             else:
                 section = metadata.get('section', 'general')
                 sources.append({
-                    "content": data_item['text'][:300] + "..." if len(data_item['text']) > 300 else data_item['text'],
+                    "content": content_preview,
                     "metadata": {
-                        "source_type": "school_database",
+                        "source_type": "rag_database",
                         "title": f"Star College Database: {section}",
                         "section": section,
+                        "relevance_score": relevance_score,
+                        "chunk_index": i + 1,
                         "url": "https://starcollegedurban.co.za"
                     }
                 })
 
-        # Create response object
+        # RAG STEP 8: CREATE FINAL RAG RESPONSE
         response_obj = {
             "answer": ai_response,
             "response": ai_response,
             "sources": sources,
             "metadata": {
+                "system_type": "RAG (Retrieval-Augmented Generation)",
                 "model_used": "deepseek-chat",
-                "tokens_used": data.get("usage", {}).get("total_tokens", 0) if 'data' in locals() else 0,
+                "tokens_used": tokens_used,
                 "school_context": selected_school or "All Schools",
                 "cached": False,
-                "information_source": "Star College processed data only",
-                "data_sources_used": len(relevant_data),
-                "processed_data_only": True
+
+                # RAG-specific metadata
+                "rag_retrieval": {
+                    "chunks_retrieved": len(relevant_chunks),
+                    "relevance_scores": [chunk['relevance_score'] for chunk in relevant_chunks],
+                    "total_context_length": total_context_length,
+                    "min_score_threshold": 0.1
+                },
+
+                "rag_augmentation": {
+                    "context_sections": len(context_sections),
+                    "prompt_length": len(rag_prompt)
+                },
+
+                "rag_generation": {
+                    "temperature": 0.2,
+                    "max_tokens": 800,
+                    "response_length": len(ai_response)
+                },
+
+                "information_source": "Star College RAG Knowledge Base",
+                "data_only_responses": True
             }
         }
+
+        print(f"RAG System: Complete! Retrieved {len(relevant_chunks)} chunks, generated {len(ai_response)} char response")
 
         # Cache the response for faster future responses
         response_cache[cache_key] = (response_obj, current_time)
@@ -414,13 +546,17 @@ INSTRUCTIONS:
         return response_obj
 
     except Exception as e:
-        print(f"Chat endpoint error: {str(e)}")
-        error_message = f"I encountered an error while processing your request. Please try again. Error: {str(e)}"
+        print(f"RAG System Error: {str(e)}")
+        error_message = f"RAG system encountered an error while processing your request. Please try again. Error: {str(e)}"
         return {
             "answer": error_message,
             "response": error_message,
             "sources": [],
-            "metadata": {"error": str(e)}
+            "metadata": {
+                "system_type": "RAG (Retrieval-Augmented Generation)",
+                "error": str(e),
+                "error_type": "rag_system_error"
+            }
         }
 
 @app.post("/feedback")
@@ -445,11 +581,73 @@ async def feedback(request: Request):
 async def health_check():
     return {
         "status": "healthy",
-        "message": "Star College Chatbot API is running on Vercel",
+        "message": "Star College RAG Chatbot API is running on Vercel",
+        "system_type": "RAG (Retrieval-Augmented Generation)",
+        "llm_model": "deepseek-chat",
         "deepseek_configured": bool(DEEPSEEK_API_KEY),
+        "knowledge_base_loaded": len(processed_data) > 0,
+        "total_documents": len(processed_data),
         "cache_size": len(response_cache),
         "timestamp": time.time()
     }
+
+@app.get("/rag-status")
+async def rag_status():
+    """Get detailed RAG system status"""
+    try:
+        load_processed_data()
+
+        # Analyze the knowledge base
+        source_types = {}
+        total_chars = 0
+
+        for item in processed_data:
+            source_type = item.get('metadata', {}).get('source_type', 'unknown')
+            source_types[source_type] = source_types.get(source_type, 0) + 1
+            total_chars += len(item.get('text', ''))
+
+        return {
+            "system_type": "RAG (Retrieval-Augmented Generation)",
+            "status": "operational",
+            "components": {
+                "retrieval": {
+                    "status": "active",
+                    "algorithm": "keyword_similarity_scoring",
+                    "knowledge_base_size": len(processed_data),
+                    "total_characters": total_chars,
+                    "source_breakdown": source_types
+                },
+                "augmentation": {
+                    "status": "active",
+                    "max_context_length": 3000,
+                    "context_sections": "dynamic"
+                },
+                "generation": {
+                    "status": "active",
+                    "llm_model": "deepseek-chat",
+                    "configured": bool(DEEPSEEK_API_KEY),
+                    "max_tokens": 800,
+                    "temperature": 0.2
+                }
+            },
+            "knowledge_base": {
+                "files_loaded": [
+                    "processed/sample_data.json",
+                    "processed/uploads_data.json",
+                    "processed/web_data.json"
+                ],
+                "total_chunks": len(processed_data),
+                "source_types": list(source_types.keys())
+            },
+            "timestamp": time.time()
+        }
+    except Exception as e:
+        return {
+            "system_type": "RAG (Retrieval-Augmented Generation)",
+            "status": "error",
+            "error": str(e),
+            "timestamp": time.time()
+        }
 
 @app.get("/warmup")
 async def warmup():
