@@ -1,32 +1,26 @@
-# Core FastAPI and web framework
+# Core FastAPI and web framework (Vercel compatible)
 fastapi==0.104.1
-uvicorn[standard]==0.23.2
+uvicorn==0.23.2
 python-multipart==0.0.6
 python-dotenv==1.0.0
 pydantic==2.4.2
 jinja2==3.1.2
 
-# LangChain core packages (optimized for deployment)
-langchain>=0.0.310
-langchain-community>=0.0.13
-langchain-core>=0.1.9
-langchain-huggingface
-
-# Essential file processing (reduced set)
-pymupdf==1.23.4
+# Essential web processing
 requests==2.31.0
 beautifulsoup4==4.12.2
 
-# Embedding and vector store
-sentence-transformers==2.2.2
-chromadb==0.4.18
+# Minimal dependencies for basic functionality
+httpx==0.25.0
 
-# Essential ML packages (optimized versions)
-huggingface-hub==0.17.3
-transformers>=4.41.2
-
-# Note: Removed heavy dependencies for Vercel deployment:
-# - torch (too large for serverless)
-# - pytesseract, pdf2image (require system dependencies)
-# - unstructured (heavy dependency)
-# - colorama (not needed for web deployment)
+# Note: Removed for Vercel serverless compatibility:
+# - pymupdf (requires system dependencies and compilation)
+# - sentence-transformers (too heavy, requires torch)
+# - chromadb (requires compilation and system dependencies)
+# - transformers (too large for serverless)
+# - langchain packages (depend on heavy ML libraries)
+# - huggingface-hub (depends on transformers)
+#
+# This minimal version provides basic web functionality.
+# For full AI features, consider using external APIs or
+# deploying to a platform that supports heavier dependencies.
