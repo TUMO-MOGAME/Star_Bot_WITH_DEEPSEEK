@@ -217,163 +217,204 @@ async def chat(request: Request):
                 cached_response["metadata"]["cached"] = True
                 return cached_response
 
-        # Create comprehensive system prompt with processed data
-        system_prompt = """You are a knowledgeable assistant for Star College Durban. Use the following information to provide accurate, detailed responses:
+        # Check if we have relevant data from processed files
+        if not relevant_data:
+            # If no relevant data found, return a helpful message
+            no_data_message = "I don't have specific information about that topic in my Star College database. Please ask about topics like academic performance, school facilities, matric results, or general school information."
+            return {
+                "answer": no_data_message,
+                "response": no_data_message,
+                "sources": [{
+                    "content": "Star College information database",
+                    "metadata": {
+                        "source_type": "system",
+                        "title": "Star College Database",
+                        "url": "https://starcollegedurban.co.za"
+                    }
+                }],
+                "metadata": {"no_relevant_data": True, "school_context": selected_school or "All Schools"}
+            }
 
-ABOUT STAR COLLEGE DURBAN:
-Star College Durban is a private, independent school located in Westville North, Durban, South Africa. The school offers comprehensive education from Grade RR to Grade 12, encompassing pre-primary, primary, and high school levels.
+        # Create system prompt using ONLY processed data
+        system_prompt = f"""You are a helpful assistant for Star College Durban. Answer the user's question using ONLY the following specific information from Star College's official records and documents. Do not use any external knowledge.
 
-SCHOOLS WITHIN STAR COLLEGE:
-- Star College Durban Boys High School
-- Star College Durban Girls High School
-- Star College Durban Primary School
-- Little Dolphin Star Pre-Primary School
+IMPORTANT: Base your response ONLY on the information provided below. If the provided information doesn't fully answer the question, say so and suggest what topics you do have information about.
 
-CONTACT INFORMATION:
-- Address: 20 Kinloch Ave, Westville North, Durban
-- Phone: 031 262 7191
-- Email: starcollege@starcollege.co.za
-- Website: starcollege.co.za
+RELEVANT STAR COLLEGE INFORMATION:
+"""
 
-ACADEMIC EXCELLENCE:
-- Follows the South African National Curriculum (CAPS)
-- 100% matric pass rate consistently maintained
-- Strong emphasis on Mathematics, Science, and Computer Technology
-- Outstanding matric results with high distinction rates
-- Recognized for excellence in Mathematics and Science Olympiads"""
+        # Add all relevant processed data to the prompt
+        for i, data in enumerate(relevant_data, 1):
+            text = data['text'][:800]  # Allow more text for better context
+            source = data['metadata'].get('source_type', 'school_data')
+            filename = data['metadata'].get('filename', '')
+            url = data['metadata'].get('url', '')
 
-        # Add relevant processed data to the prompt
-        if relevant_data:
-            system_prompt += "\n\nRELEVANT INFORMATION FROM SCHOOL RECORDS:\n"
-            for i, data in enumerate(relevant_data[:3], 1):
-                text = data['text'][:500]  # Limit text length
-                source = data['metadata'].get('source_type', 'school_data')
-                system_prompt += f"\n{i}. {text}... (Source: {source})\n"
+            source_info = f"Source: {source}"
+            if filename:
+                source_info += f" ({filename})"
+            if url:
+                source_info += f" - {url}"
 
-        system_prompt += "\n\nProvide helpful, accurate responses based on this information. Be friendly and informative. Always prioritize the specific school records and data when available."
+            system_prompt += f"\n{i}. {text}\n   [{source_info}]\n"
+
+        system_prompt += f"""
+
+USER QUESTION: {message}
+
+INSTRUCTIONS:
+- Answer based ONLY on the information provided above
+- Be specific and cite the relevant information
+- If you need to mention something not in the provided information, clearly state that it's not in your current database
+- Be helpful and friendly
+- Focus on Star College Durban specifically"""
 
         if selected_school and selected_school != "All Star College Schools":
-            system_prompt += f"\n\nThe user is specifically asking about {selected_school}. Focus your response on this particular school when relevant."
+            system_prompt += f"\n- The user is asking specifically about {selected_school}, focus on that school if relevant information is available"
 
-        # Optimize for faster responses
-        async with httpx.AsyncClient(
-            timeout=httpx.Timeout(15.0, connect=5.0),  # Faster timeout
-            limits=httpx.Limits(max_connections=10, max_keepalive_connections=5)
-        ) as client:
-            response = await client.post(
-                "https://api.deepseek.com/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model": "deepseek-chat",
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": message}
-                    ],
-                    "max_tokens": 400,  # Reduced for faster responses
-                    "temperature": 0.5,  # Lower temperature for faster, more focused responses
-                    "top_p": 0.9,  # Add top_p for better performance
-                    "frequency_penalty": 0.1,  # Slight penalty to avoid repetition
-                    "stream": False  # Ensure no streaming for consistent timing
-                },
-                timeout=15.0  # Faster timeout
-            )
+        # Call DeepSeek API with processed data only
+        try:
+            async with httpx.AsyncClient(
+                timeout=httpx.Timeout(20.0, connect=10.0)
+            ) as client:
 
-            print(f"DeepSeek API response status: {response.status_code}")  # Debug log
+                print(f"Calling DeepSeek API with {len(relevant_data)} data sources")
 
-            if response.status_code == 200:
-                data = response.json()
-                ai_response = data["choices"][0]["message"]["content"]
-
-                # Create sources from processed data
-                sources = []
-
-                # Add sources from processed data
-                for data_item in relevant_data[:2]:  # Top 2 most relevant
-                    metadata = data_item.get('metadata', {})
-                    source_type = metadata.get('source_type', 'school_data')
-
-                    if source_type == 'file':
-                        filename = metadata.get('filename', 'school_document')
-                        sources.append({
-                            "content": data_item['text'][:200] + "...",
-                            "metadata": {
-                                "source_type": "school_document",
-                                "title": f"Star College Document: {filename}",
-                                "filename": filename,
-                                "url": "https://starcollegedurban.co.za"
-                            }
-                        })
-                    elif source_type == 'web':
-                        url = metadata.get('url', 'https://starcollegedurban.co.za')
-                        sources.append({
-                            "content": data_item['text'][:200] + "...",
-                            "metadata": {
-                                "source_type": "web_content",
-                                "title": "Star College Web Information",
-                                "url": url
-                            }
-                        })
-                    else:
-                        sources.append({
-                            "content": data_item['text'][:200] + "...",
-                            "metadata": {
-                                "source_type": "school_database",
-                                "title": "Star College Information Database",
-                                "url": "https://starcollegedurban.co.za"
-                            }
-                        })
-
-                # Add default source if no processed data sources
-                if not sources:
-                    sources.append({
-                        "content": "Star College Durban official information and knowledge base",
-                        "metadata": {
-                            "source_type": "knowledge_base",
-                            "title": "Star College Information Database",
-                            "url": "https://starcollegedurban.co.za"
-                        }
-                    })
-
-                # Create response object
-                response_obj = {
-                    "answer": ai_response,  # Your frontend expects 'answer', not 'response'
-                    "response": ai_response,  # Keep both for compatibility
-                    "sources": sources,
-                    "metadata": {
-                        "model_used": "deepseek-chat",
-                        "tokens_used": data.get("usage", {}).get("total_tokens", 0),
-                        "school_context": selected_school or "All Schools",
-                        "cached": False,
-                        "information_source": "Star College processed data",
-                        "data_sources_used": len(relevant_data)
+                response = await client.post(
+                    "https://api.deepseek.com/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": "deepseek-chat",
+                        "messages": [
+                            {"role": "system", "content": system_prompt}
+                        ],
+                        "max_tokens": 600,
+                        "temperature": 0.3,  # Lower temperature for more focused responses
+                        "top_p": 0.9,
+                        "stream": False
                     }
-                }
+                )
 
-                # Cache the response for faster future responses
-                response_cache[cache_key] = (response_obj, current_time)
+                print(f"DeepSeek API response status: {response.status_code}")
 
-                # Clean old cache entries (keep cache size manageable)
-                if len(response_cache) > 100:
-                    oldest_key = min(response_cache.keys(), key=lambda k: response_cache[k][1])
-                    del response_cache[oldest_key]
+                if response.status_code != 200:
+                    error_text = response.text
+                    print(f"DeepSeek API error response: {error_text}")
+                    raise Exception(f"DeepSeek API returned status {response.status_code}: {error_text}")
 
-                return response_obj
+        except httpx.TimeoutException:
+            error_message = "The AI service is taking too long to respond. Please try again."
+            return {
+                "answer": error_message,
+                "response": error_message,
+                "sources": [],
+                "metadata": {"error": "timeout"}
+            }
+        except httpx.ConnectError:
+            error_message = "Unable to connect to the AI service. Please check your internet connection and try again."
+            return {
+                "answer": error_message,
+                "response": error_message,
+                "sources": [],
+                "metadata": {"error": "connection_error"}
+            }
+        except Exception as api_error:
+            print(f"DeepSeek API error: {str(api_error)}")
+            error_message = f"AI service error: {str(api_error)}"
+            return {
+                "answer": error_message,
+                "response": error_message,
+                "sources": [],
+                "metadata": {"error": str(api_error)}
+            }
+
+        # Process successful response
+        try:
+            data = response.json()
+            ai_response = data["choices"][0]["message"]["content"]
+            print(f"AI response generated successfully, length: {len(ai_response)}")
+        except Exception as parse_error:
+            print(f"Error parsing DeepSeek response: {parse_error}")
+            error_message = "Error processing AI response. Please try again."
+            return {
+                "answer": error_message,
+                "response": error_message,
+                "sources": [],
+                "metadata": {"error": "response_parsing_error"}
+            }
+
+        # Create sources from the processed data that was actually used
+        sources = []
+
+        for data_item in relevant_data:
+            metadata = data_item.get('metadata', {})
+            source_type = metadata.get('source_type', 'school_data')
+
+            if source_type == 'file':
+                filename = metadata.get('filename', 'school_document')
+                sources.append({
+                    "content": data_item['text'][:300] + "..." if len(data_item['text']) > 300 else data_item['text'],
+                    "metadata": {
+                        "source_type": "school_document",
+                        "title": f"Star College Document: {filename}",
+                        "filename": filename,
+                        "url": "https://starcollegedurban.co.za"
+                    }
+                })
+            elif source_type == 'web':
+                url = metadata.get('url', 'https://starcollegedurban.co.za')
+                title = metadata.get('title', 'Star College Web Content')
+                sources.append({
+                    "content": data_item['text'][:300] + "..." if len(data_item['text']) > 300 else data_item['text'],
+                    "metadata": {
+                        "source_type": "web_content",
+                        "title": f"Star College Web: {title}",
+                        "url": url
+                    }
+                })
             else:
-                error_text = response.text if hasattr(response, 'text') else "Unknown error"
-                print(f"DeepSeek API error: {error_text}")  # Debug log
-                error_message = f"I'm having trouble connecting to the AI service right now. Please try again in a moment. (Error: {response.status_code})"
-                return {
-                    "answer": error_message,
-                    "response": error_message,
-                    "sources": [],
-                    "metadata": {"error": f"API Error {response.status_code}"}
-                }
+                section = metadata.get('section', 'general')
+                sources.append({
+                    "content": data_item['text'][:300] + "..." if len(data_item['text']) > 300 else data_item['text'],
+                    "metadata": {
+                        "source_type": "school_database",
+                        "title": f"Star College Database: {section}",
+                        "section": section,
+                        "url": "https://starcollegedurban.co.za"
+                    }
+                })
+
+        # Create response object
+        response_obj = {
+            "answer": ai_response,
+            "response": ai_response,
+            "sources": sources,
+            "metadata": {
+                "model_used": "deepseek-chat",
+                "tokens_used": data.get("usage", {}).get("total_tokens", 0) if 'data' in locals() else 0,
+                "school_context": selected_school or "All Schools",
+                "cached": False,
+                "information_source": "Star College processed data only",
+                "data_sources_used": len(relevant_data),
+                "processed_data_only": True
+            }
+        }
+
+        # Cache the response for faster future responses
+        response_cache[cache_key] = (response_obj, current_time)
+
+        # Clean old cache entries (keep cache size manageable)
+        if len(response_cache) > 100:
+            oldest_key = min(response_cache.keys(), key=lambda k: response_cache[k][1])
+            del response_cache[oldest_key]
+
+        return response_obj
 
     except Exception as e:
-        print(f"Chat endpoint error: {str(e)}")  # Debug log
+        print(f"Chat endpoint error: {str(e)}")
         error_message = f"I encountered an error while processing your request. Please try again. Error: {str(e)}"
         return {
             "answer": error_message,
