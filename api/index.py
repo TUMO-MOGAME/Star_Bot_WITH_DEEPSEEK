@@ -23,92 +23,49 @@ app.add_middleware(
 # Get environment variables
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 
-# Main page route
+# Main page route - serve the existing index.html
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    return HTMLResponse(content="""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Star College Chatbot</title>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
-            .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
-            h1 { color: #0a3d62; text-align: center; margin-bottom: 30px; }
-            .status { background: #2ecc71; color: white; padding: 15px; border-radius: 8px; margin: 20px 0; text-align: center; }
-            .chat-container { background: #f8f9fa; border-radius: 10px; padding: 20px; margin: 20px 0; }
-            .chat-input { width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; }
-            .chat-button { background: #0a3d62; color: white; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; margin-top: 10px; }
-            .chat-button:hover { background: #2c5282; }
-            .response { background: #e3f2fd; padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 4px solid #2196f3; }
-            .info { background: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>🌟 Star College Chatbot</h1>
-            <div class="status">✅ Successfully Deployed on Vercel!</div>
-
-            <div class="info">
-                <strong>🚀 Deployment Status:</strong>
-                <ul>
-                    <li>✅ FastAPI application running</li>
-                    <li>✅ CORS configured</li>
-                    <li>✅ API endpoints active</li>
-                    <li>🔑 DeepSeek API: """ + ("✅ Configured" if DEEPSEEK_API_KEY else "❌ Not configured") + """</li>
-                </ul>
-            </div>
-
-            <div class="chat-container">
-                <h3>💬 Test Chat Interface</h3>
-                <form id="chatForm">
-                    <input type="text" id="messageInput" class="chat-input" placeholder="Ask me about Star College..." required>
-                    <button type="submit" class="chat-button">Send Message</button>
-                </form>
-                <div id="response" class="response" style="display: none;"></div>
-            </div>
-
-            <div style="text-align: center; margin-top: 30px;">
-                <p><a href="/health" style="color: #0a3d62;">🔍 Check API Health</a> |
-                   <a href="/docs" style="color: #0a3d62;">📚 API Documentation</a></p>
-            </div>
-        </div>
-
-        <script>
-            document.getElementById('chatForm').addEventListener('submit', async function(e) {
-                e.preventDefault();
-                const message = document.getElementById('messageInput').value;
-                const responseDiv = document.getElementById('response');
-
-                responseDiv.style.display = 'block';
-                responseDiv.innerHTML = '🤔 Thinking...';
-
-                try {
-                    const response = await fetch('/chat', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                        body: 'message=' + encodeURIComponent(message)
-                    });
-                    const data = await response.json();
-                    responseDiv.innerHTML = '🤖 ' + data.response;
-                } catch (error) {
-                    responseDiv.innerHTML = '❌ Error: ' + error.message;
-                }
-            });
-        </script>
-    </body>
-    </html>
-    """)
+    try:
+        # Try to read the index.html file from the project root
+        index_path = os.path.join(os.path.dirname(__file__), "..", "index.html")
+        with open(index_path, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    except FileNotFoundError:
+        # Fallback if index.html is not found
+        return HTMLResponse(content="""
+        <!DOCTYPE html>
+        <html>
+        <head><title>Star College Chatbot</title></head>
+        <body>
+            <h1>Star College Chatbot</h1>
+            <p>Welcome! The main interface is loading...</p>
+            <p>If you see this message, please check that index.html is properly deployed.</p>
+        </body>
+        </html>
+        """)
 
 @app.post("/chat")
-async def chat(message: str = Form(...)):
-    """Simple chat endpoint using DeepSeek API"""
+async def chat(request: Request):
+    """Chat endpoint that matches the frontend's expectations"""
     if not DEEPSEEK_API_KEY:
-        return {"response": "Sorry, the AI service is not configured. Please contact the administrator."}
+        return {
+            "response": "Sorry, the AI service is not configured. Please contact the administrator.",
+            "sources": [],
+            "metadata": {}
+        }
 
     try:
+        # Parse the JSON request body
+        body = await request.json()
+        message = body.get("message", "")
+        selected_school = body.get("selectedSchool", "")
+
+        # Create system prompt based on selected school
+        system_prompt = "You are a helpful assistant for Star College in Durban, South Africa. Provide helpful and accurate information about the college."
+        if selected_school:
+            system_prompt += f" The user is specifically asking about {selected_school}."
+
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 "https://api.deepseek.com/v1/chat/completions",
@@ -119,10 +76,10 @@ async def chat(message: str = Form(...)):
                 json={
                     "model": "deepseek-chat",
                     "messages": [
-                        {"role": "system", "content": "You are a helpful assistant for Star College in Durban, South Africa. Provide helpful information about the college."},
+                        {"role": "system", "content": system_prompt},
                         {"role": "user", "content": message}
                     ],
-                    "max_tokens": 500,
+                    "max_tokens": 800,
                     "temperature": 0.7
                 },
                 timeout=30.0
@@ -130,12 +87,50 @@ async def chat(message: str = Form(...)):
 
             if response.status_code == 200:
                 data = response.json()
-                return {"response": data["choices"][0]["message"]["content"]}
+                ai_response = data["choices"][0]["message"]["content"]
+
+                # Return response in the format expected by the frontend
+                return {
+                    "response": ai_response,
+                    "sources": [
+                        {
+                            "content": "Response generated using DeepSeek AI",
+                            "metadata": {
+                                "source_type": "ai",
+                                "model": "deepseek-chat",
+                                "title": "AI Generated Response"
+                            }
+                        }
+                    ],
+                    "metadata": {
+                        "model_used": "deepseek-chat",
+                        "tokens_used": data.get("usage", {}).get("total_tokens", 0)
+                    }
+                }
             else:
-                return {"response": f"Sorry, I'm having trouble connecting to the AI service. (Error: {response.status_code})"}
+                return {
+                    "response": f"Sorry, I'm having trouble connecting to the AI service. (Error: {response.status_code})",
+                    "sources": [],
+                    "metadata": {"error": f"API Error {response.status_code}"}
+                }
 
     except Exception as e:
-        return {"response": f"Sorry, I encountered an error: {str(e)}"}
+        return {
+            "response": f"Sorry, I encountered an error: {str(e)}",
+            "sources": [],
+            "metadata": {"error": str(e)}
+        }
+
+@app.post("/feedback")
+async def feedback(request: Request):
+    """Feedback endpoint for user ratings"""
+    try:
+        body = await request.json()
+        # For now, just log the feedback (in production, you'd save to database)
+        print(f"Feedback received: {body}")
+        return {"status": "success", "message": "Thank you for your feedback!"}
+    except Exception as e:
+        return {"status": "error", "message": f"Error processing feedback: {str(e)}"}
 
 @app.get("/health")
 async def health_check():
