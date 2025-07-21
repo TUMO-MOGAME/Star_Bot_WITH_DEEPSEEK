@@ -181,6 +181,52 @@ def calculate_similarity_score(query: str, text: str) -> float:
 
     return round(normalized_score, 3)
 
+def enhance_response_formatting(response: str) -> str:
+    """Post-process response to ensure professional formatting"""
+    if not response or len(response.strip()) < 10:
+        return response
+
+    # Ensure proper paragraph spacing
+    response = re.sub(r'\n{3,}', '\n\n', response)
+
+    # Enhance bullet points
+    response = re.sub(r'^•\s*', '• **', response, flags=re.MULTILINE)
+    response = re.sub(r'^-\s*', '• **', response, flags=re.MULTILINE)
+
+    # Close bold formatting for bullet points
+    lines = response.split('\n')
+    enhanced_lines = []
+
+    for line in lines:
+        if line.strip().startswith('• **') and '**' not in line[4:]:
+            # Find the end of the first phrase/sentence for bold formatting
+            colon_pos = line.find(':')
+            dash_pos = line.find(' - ')
+
+            if colon_pos > 0 and colon_pos < 50:
+                line = line[:colon_pos] + '**' + line[colon_pos:]
+            elif dash_pos > 0 and dash_pos < 50:
+                line = line[:dash_pos] + '**' + line[dash_pos:]
+            else:
+                # Bold the first few words
+                words = line.split()
+                if len(words) > 2:
+                    line = ' '.join(words[:3]) + '**' + ' ' + ' '.join(words[3:])
+
+        enhanced_lines.append(line)
+
+    response = '\n'.join(enhanced_lines)
+
+    # Ensure key numbers and percentages are bold
+    response = re.sub(r'(\d+%)', r'**\1**', response)
+    response = re.sub(r'(\d{4})', r'**\1**', response)  # Years
+    response = re.sub(r'(100% pass rate)', r'**\1**', response, flags=re.IGNORECASE)
+
+    # Clean up any double bold formatting
+    response = re.sub(r'\*\*\*\*', '**', response)
+
+    return response.strip()
+
 def retrieve_relevant_chunks(query: str, max_results: int = 5, min_score: float = 0.15) -> List[Dict]:
     """Advanced RAG Retrieval with intelligent ranking"""
     if not processed_data:
@@ -359,12 +405,69 @@ I'm your AI assistant powered by our comprehensive knowledge base. I can help yo
                 }
             }
 
-        # Enhanced quick answers with RAG metadata
+        # Professional quick answers with comprehensive information
         quick_answers = {
-            "what is star college": "⭐ **Star College Durban** is a prestigious private, independent school located in Westville North, Durban. Established in 2002 by the Horizon Educational Trust, we offer comprehensive education from Grade RR to Grade 12 with an outstanding **100% matric pass rate** since inception!",
-            "where is star college": "📍 **Star College Location:**\n• Address: 20 Kinloch Ave, Westville North, Durban\n• Phone: 031 262 7191\n• Email: starcollege@starcollege.co.za\n• Website: starcollegedurban.co.za",
-            "matric results": "🏆 **Outstanding Academic Performance:**\nStar College maintains a **100% matric pass rate** since 2002, with many students achieving multiple distinctions. We consistently excel in Mathematics, Science, and Computer Technology.",
-            "schools": "🏫 **Star College Family:**\n• ⭐ Star College Durban Boys High School\n• ⭐ Star College Durban Girls High School\n• ⭐ Star College Durban Primary School\n• ⭐ Little Dolphin Star Pre-Primary School"
+            "what is star college": """**Star College Durban - Excellence in Education**
+
+Star College Durban is a **premier private, independent school** established in **2002** by the Horizon Educational Trust. Located in the prestigious Westville North area of Durban, we provide world-class education from Grade RR through Grade 12.
+
+**Key Highlights:**
+• **100% Matric Pass Rate** maintained since inception
+• **Comprehensive Education** - Pre-Primary to Grade 12
+• **STEM Excellence** - Leading in Mathematics, Science & Technology
+• **Multiple School Divisions** serving diverse educational needs
+
+*Committed to developing future leaders through academic excellence and holistic education.*""",
+
+            "where is star college": """**Star College Durban Location & Contact**
+
+**📍 Campus Address:**
+20 Kinloch Ave, Westville North, Durban, South Africa
+
+**📞 Contact Information:**
+• **Phone:** 031 262 7191
+• **Email:** starcollege@starcollege.co.za
+• **Website:** starcollegedurban.co.za
+
+**🗺️ Area:** Conveniently located in the sought-after Westville North suburb, providing easy access for families across Durban.""",
+
+            "matric results": """**Academic Excellence - Matric Performance**
+
+**🏆 Outstanding Track Record:**
+• **100% Pass Rate** maintained consistently since 2002
+• **Multiple Distinctions** achieved by students annually
+• **STEM Leadership** - Excellence in Mathematics, Science & Computer Technology
+• **National Recognition** - Top performers in Mathematics & Science Olympiads
+
+**🎯 Academic Focus Areas:**
+• Advanced Mathematics programs
+• Comprehensive Science curriculum
+• Cutting-edge Computer Technology education
+• Holistic academic development
+
+*Our commitment to academic excellence ensures every student reaches their full potential.*""",
+
+            "schools": """**The Star College Family**
+
+**🏫 Our Educational Divisions:**
+
+**⭐ Star College Durban Boys High School**
+- Specialized education for male students
+- Focus on leadership and academic excellence
+
+**⭐ Star College Durban Girls High School**
+- Dedicated environment for female students
+- Empowering young women for future success
+
+**⭐ Star College Durban Primary School**
+- Foundation education (Grades 1-7)
+- Building strong academic fundamentals
+
+**⭐ Little Dolphin Star Pre-Primary School**
+- Early childhood development (Grade RR)
+- Nurturing environment for young learners
+
+*Each division maintains our commitment to excellence while serving specific educational needs.*"""
         }
 
         # Check for quick answer matches
@@ -418,30 +521,39 @@ I'm your AI assistant powered by our comprehensive knowledge base. I can help yo
         # RAG STEP 2: CHECK RETRIEVAL RESULTS
         if not relevant_chunks:
             print("RAG System: No relevant information found in knowledge base")
-            no_data_message = """I don't have specific information about that topic in my Star College knowledge base.
+            no_data_message = f"""**Information Not Available**
 
-I can help you with information about:
-• Academic performance and matric results
-• School facilities and programs
-• Contact information and location
-• Extracurricular activities
-• School history and achievements
+I don't currently have specific information about "{message}" in my Star College knowledge base.
 
-Please try asking about one of these topics."""
+**I can assist you with:**
+• **Academic Excellence** - Matric results, pass rates, and achievements
+• **School Information** - Facilities, programs, and curriculum details
+• **Contact & Location** - Address, phone numbers, and directions
+• **School Divisions** - Boys High, Girls High, Primary, and Pre-Primary
+• **Admissions** - Application processes and requirements
+
+**For specific details not in my database, please contact:**
+📞 **Phone:** 031 262 7191
+📧 **Email:** starcollege@starcollege.co.za
+🌐 **Website:** starcollegedurban.co.za
+
+*How else can I help you learn about Star College?*"""
 
             return {
                 "answer": no_data_message,
                 "response": no_data_message,
                 "sources": [{
-                    "content": "Star College RAG Knowledge Base",
+                    "content": "Star College Contact Information and Available Topics",
                     "metadata": {
-                        "source_type": "rag_system",
-                        "title": "Star College RAG Database",
+                        "source_type": "system_guidance",
+                        "title": "📋 Available Information Topics",
+                        "category": "System Guidance",
                         "url": "https://starcollegedurban.co.za"
                     }
                 }],
                 "metadata": {
-                    "rag_system": True,
+                    "system_type": "RAG (Retrieval-Augmented Generation)",
+                    "response_type": "information_not_available",
                     "retrieval_results": 0,
                     "school_context": selected_school or "All Schools"
                 }
@@ -498,35 +610,40 @@ Please try asking about one of these topics."""
             if total_context_length >= max_context_length:
                 break
 
-        # RAG STEP 4: Create the perfect augmented prompt
-        rag_prompt = f"""You are the official Star College Durban AI Assistant powered by RAG (Retrieval-Augmented Generation). Your knowledge comes exclusively from Star College's official documents and records.
+        # RAG STEP 4: Create the perfect professional prompt
+        rag_prompt = f"""You are the official Star College Durban AI Assistant, providing authoritative information from our comprehensive knowledge base.
 
-🎯 MISSION: Provide accurate, helpful information about Star College Durban using ONLY the retrieved context below.
+PROFESSIONAL RESPONSE STANDARDS:
+• Provide confident, well-structured answers using ONLY the context below
+• Use professional formatting with clear headings and bullet points
+• Start with direct answers, then provide supporting details
+• Cite sources naturally within the response flow
+• Maintain an authoritative yet approachable tone
+• Use specific data, numbers, and facts when available
 
-📋 STRICT GUIDELINES:
-• Use ONLY information from the CONTEXT sections below
-• Never use external knowledge or make assumptions
-• If context is insufficient, clearly state what information is missing
-• Always cite specific context sections (e.g., "According to Context 1...")
-• Maintain a professional, helpful, and friendly tone
-• Focus specifically on Star College Durban
-
-📚 RETRIEVED KNOWLEDGE BASE:
+CONTEXT FROM STAR COLLEGE RECORDS:
 {''.join(context_sections)}
 
-❓ USER QUESTION: {message}
+USER INQUIRY: {message}
 
-🎯 RESPONSE REQUIREMENTS:
-✅ Base answer exclusively on the context above
-✅ Reference specific contexts when citing information
-✅ If information is incomplete, acknowledge gaps and suggest related topics
-✅ Use clear, professional language appropriate for prospective students and parents
-✅ Highlight key facts, numbers, and achievements when relevant"""
+RESPONSE FRAMEWORK:
+1. Lead with a direct, confident answer
+2. Provide structured supporting information
+3. Include specific data/facts from the context
+4. End with helpful next steps or related information
+5. Use professional formatting (headers, bullets, emphasis)
+
+FORMATTING GUIDELINES:
+• Use **bold** for key information and numbers
+• Use bullet points for lists and multiple items
+• Use clear section headers when appropriate
+• Emphasize achievements and unique selling points
+• Keep paragraphs concise and scannable"""
 
         if selected_school and selected_school != "All Star College Schools":
-            rag_prompt += f"\n✅ Focus specifically on {selected_school} if mentioned in the context"
+            rag_prompt += f"\n\nSPECIFIC FOCUS: Prioritize information about {selected_school} when available in the context."
 
-        rag_prompt += f"\n\n🚀 Generate your response now based solely on the {len(context_sections)} context sections above:"
+        rag_prompt += f"\n\nGenerate a professional, authoritative response using the {len(context_sections)} context sections above:"
 
         print(f"✅ RAG Augmentation: Perfect prompt created | Contexts: {len(context_sections)} | Length: {total_context_length} chars")
 
@@ -594,18 +711,28 @@ Please try asking about one of these topics."""
                 "metadata": {"error": str(api_error)}
             }
 
-        # RAG STEP 6: PROCESS GENERATED RESPONSE
+        # RAG STEP 6: PROCESS AND ENHANCE GENERATED RESPONSE
         try:
             data = response.json()
-            ai_response = data["choices"][0]["message"]["content"]
+            raw_response = data["choices"][0]["message"]["content"]
             tokens_used = data.get("usage", {}).get("total_tokens", 0)
 
-            print(f"RAG Generation: Response generated successfully")
+            # Apply professional formatting enhancements
+            enhanced_response = enhance_response_formatting(raw_response)
+
+            # Add professional signature for comprehensive responses
+            if len(enhanced_response) > 200 and not enhanced_response.endswith('?'):
+                signature = f"\n\n---\n*Need more information? Contact us at **031 262 7191** or visit **starcollegedurban.co.za***"
+                ai_response = enhanced_response + signature
+            else:
+                ai_response = enhanced_response
+
+            print(f"RAG Generation: Response generated and enhanced successfully")
             print(f"RAG Generation: Response length: {len(ai_response)} chars, Tokens used: {tokens_used}")
 
         except Exception as parse_error:
             print(f"RAG Generation Error: Failed to parse DeepSeek response: {parse_error}")
-            error_message = "Error processing RAG response. Please try again."
+            error_message = "**System Error**\n\nI encountered an error while processing your request. Please try again or contact our support team.\n\n📞 **Phone:** 031 262 7191"
             return {
                 "answer": error_message,
                 "response": error_message,
