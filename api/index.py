@@ -5,6 +5,9 @@ import os
 import httpx
 import hashlib
 import time
+import json
+import re
+from typing import List, Dict
 
 # Create FastAPI app
 app = FastAPI(
@@ -28,6 +31,61 @@ DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 # Simple in-memory cache for faster responses
 response_cache = {}
 CACHE_DURATION = 300  # 5 minutes cache
+
+# Load processed data
+processed_data = []
+
+def load_processed_data():
+    """Load all processed data from JSON files"""
+    global processed_data
+    if processed_data:  # Already loaded
+        return processed_data
+
+    data_files = [
+        "processed/sample_data.json",
+        "processed/uploads_data.json",
+        "processed/web_data.json"
+    ]
+
+    all_data = []
+    for file_path in data_files:
+        try:
+            if os.path.exists(file_path):
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    all_data.extend(data)
+                    print(f"Loaded {len(data)} items from {file_path}")
+        except Exception as e:
+            print(f"Error loading {file_path}: {e}")
+
+    processed_data = all_data
+    print(f"Total processed data loaded: {len(processed_data)} items")
+    return processed_data
+
+def search_processed_data(query: str, max_results: int = 5) -> List[Dict]:
+    """Search through processed data for relevant information"""
+    if not processed_data:
+        load_processed_data()
+
+    query_lower = query.lower()
+    results = []
+
+    # Search for relevant chunks
+    for item in processed_data:
+        text = item.get('text', '').lower()
+
+        # Simple keyword matching (can be improved with better search algorithms)
+        if any(keyword in text for keyword in query_lower.split()):
+            score = sum(1 for keyword in query_lower.split() if keyword in text)
+            results.append({
+                'text': item.get('text', ''),
+                'metadata': item.get('metadata', {}),
+                'score': score
+            })
+
+    # Sort by relevance score and return top results
+    results.sort(key=lambda x: x['score'], reverse=True)
+    return results[:max_results]
 
 # Main page route - serve the existing index.html
 @app.get("/", response_class=HTMLResponse)
@@ -112,6 +170,10 @@ async def chat(request: Request):
                     "metadata": {"quick_answer": True, "school_context": selected_school or "All Schools"}
                 }
 
+        # Search processed data for relevant information
+        relevant_data = search_processed_data(message, max_results=3)
+        print(f"Found {len(relevant_data)} relevant data chunks")
+
         # Check cache for faster responses
         cache_key = hashlib.md5(f"{message.lower().strip()}_{selected_school}".encode()).hexdigest()
         current_time = time.time()
@@ -123,11 +185,11 @@ async def chat(request: Request):
                 cached_response["metadata"]["cached"] = True
                 return cached_response
 
-        # Create comprehensive system prompt with detailed Star College information
-        system_prompt = """You are a knowledgeable assistant for Star College Durban. Use the following accurate information to answer questions:
+        # Create comprehensive system prompt with processed data
+        system_prompt = """You are a knowledgeable assistant for Star College Durban. Use the following information to provide accurate, detailed responses:
 
 ABOUT STAR COLLEGE DURBAN:
-Star College Durban is a private, independent school located in Westville North, Durban, South Africa. Established in 2002 by the Horizon Educational Trust, it offers comprehensive education from Grade RR to Grade 12, encompassing pre-primary, primary, and high school levels.
+Star College Durban is a private, independent school located in Westville North, Durban, South Africa. The school offers comprehensive education from Grade RR to Grade 12, encompassing pre-primary, primary, and high school levels.
 
 SCHOOLS WITHIN STAR COLLEGE:
 - Star College Durban Boys High School
@@ -135,28 +197,28 @@ SCHOOLS WITHIN STAR COLLEGE:
 - Star College Durban Primary School
 - Little Dolphin Star Pre-Primary School
 
-CURRICULUM & ACADEMICS:
-- Follows the South African National Curriculum
-- Known for strong academic performance in Mathematics, Science, and Computer Technology
-- 100% pass rate in National Senior Certificate (Matric) exams since inception
-- Many students achieve multiple distinctions
-- Recognized as best-performing school in South Africa in Maths and Science Olympiad (2009)
-- Consistently achieves top results in national and international Mathematics, Science, and Computer Olympiads
+CONTACT INFORMATION:
+- Address: 20 Kinloch Ave, Westville North, Durban
+- Phone: 031 262 7191
+- Email: starcollege@starcollege.co.za
+- Website: starcollege.co.za
 
-FACILITIES & ACTIVITIES:
-- Specialized classrooms and sports facilities
-- Cultural programs and extracurricular activities
-- Balanced approach to education encouraging both academic and extracurricular participation
+ACADEMIC EXCELLENCE:
+- Follows the South African National Curriculum (CAPS)
+- 100% matric pass rate consistently maintained
+- Strong emphasis on Mathematics, Science, and Computer Technology
+- Outstanding matric results with high distinction rates
+- Recognized for excellence in Mathematics and Science Olympiads"""
 
-VALUES & ETHOS:
-- School motto: "Excellence in Education"
-- Fosters culture of respect, responsibility, and community
-- Develops students who are compassionate, knowledgeable, and respectful
-- Prepares students to be ethical leaders in society
+        # Add relevant processed data to the prompt
+        if relevant_data:
+            system_prompt += "\n\nRELEVANT INFORMATION FROM SCHOOL RECORDS:\n"
+            for i, data in enumerate(relevant_data[:3], 1):
+                text = data['text'][:500]  # Limit text length
+                source = data['metadata'].get('source_type', 'school_data')
+                system_prompt += f"\n{i}. {text}... (Source: {source})\n"
 
-WEBSITES: starcollegedurban.co.za, starboyshigh.co.za, starprimary.co.za
-
-Provide helpful, accurate responses based on this information. Be friendly and informative."""
+        system_prompt += "\n\nProvide helpful, accurate responses based on this information. Be friendly and informative. Always prioritize the specific school records and data when available."
 
         if selected_school and selected_school != "All Star College Schools":
             system_prompt += f"\n\nThe user is specifically asking about {selected_school}. Focus your response on this particular school when relevant."
@@ -193,35 +255,68 @@ Provide helpful, accurate responses based on this information. Be friendly and i
                 data = response.json()
                 ai_response = data["choices"][0]["message"]["content"]
 
+                # Create sources from processed data
+                sources = []
+
+                # Add sources from processed data
+                for data_item in relevant_data[:2]:  # Top 2 most relevant
+                    metadata = data_item.get('metadata', {})
+                    source_type = metadata.get('source_type', 'school_data')
+
+                    if source_type == 'file':
+                        filename = metadata.get('filename', 'school_document')
+                        sources.append({
+                            "content": data_item['text'][:200] + "...",
+                            "metadata": {
+                                "source_type": "school_document",
+                                "title": f"Star College Document: {filename}",
+                                "filename": filename,
+                                "url": "https://starcollegedurban.co.za"
+                            }
+                        })
+                    elif source_type == 'web':
+                        url = metadata.get('url', 'https://starcollegedurban.co.za')
+                        sources.append({
+                            "content": data_item['text'][:200] + "...",
+                            "metadata": {
+                                "source_type": "web_content",
+                                "title": "Star College Web Information",
+                                "url": url
+                            }
+                        })
+                    else:
+                        sources.append({
+                            "content": data_item['text'][:200] + "...",
+                            "metadata": {
+                                "source_type": "school_database",
+                                "title": "Star College Information Database",
+                                "url": "https://starcollegedurban.co.za"
+                            }
+                        })
+
+                # Add default source if no processed data sources
+                if not sources:
+                    sources.append({
+                        "content": "Star College Durban official information and knowledge base",
+                        "metadata": {
+                            "source_type": "knowledge_base",
+                            "title": "Star College Information Database",
+                            "url": "https://starcollegedurban.co.za"
+                        }
+                    })
+
                 # Create response object
                 response_obj = {
                     "answer": ai_response,  # Your frontend expects 'answer', not 'response'
                     "response": ai_response,  # Keep both for compatibility
-                    "sources": [
-                        {
-                            "content": "Star College Durban official information and knowledge base",
-                            "metadata": {
-                                "source_type": "knowledge_base",
-                                "model": "deepseek-chat",
-                                "title": "Star College Information Database",
-                                "url": "https://starcollegedurban.co.za"
-                            }
-                        },
-                        {
-                            "content": "Additional school information from starboyshigh.co.za and starprimary.co.za",
-                            "metadata": {
-                                "source_type": "school_websites",
-                                "title": "Star College School Websites",
-                                "url": "https://starboyshigh.co.za"
-                            }
-                        }
-                    ],
+                    "sources": sources,
                     "metadata": {
                         "model_used": "deepseek-chat",
                         "tokens_used": data.get("usage", {}).get("total_tokens", 0),
                         "school_context": selected_school or "All Schools",
                         "cached": False,
-                        "information_source": "Star College knowledge base"
+                        "information_source": "Star College processed data",
+                        "data_sources_used": len(relevant_data)
                     }
                 }
 
@@ -291,6 +386,12 @@ async def warmup():
         "message": "Function is ready",
         "timestamp": time.time()
     }
+
+# Initialize processed data on startup
+@app.on_event("startup")
+async def startup_event():
+    """Load processed data when the app starts"""
+    load_processed_data()
 
 # This is required for Vercel
 app = app
